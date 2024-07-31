@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>XMPP Client</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/strophe.js/1.4.2/strophe.min.js"></script>
+  <script>
+    var connection = null;
+
+    function log(msg) {
+      document.getElementById('log').textContent += msg + '\n';
+    }
+
+    function displayMessage(msg) {
+      var messageContainer = document.getElementById('messages');
+      var newMessage = document.createElement('div');
+      newMessage.textContent = msg;
+      messageContainer.appendChild(newMessage);
+    }
+
+    function onConnect(status) {
+      if (status == Strophe.Status.CONNECTING) {
+        log('Connecting...');
+      } else if (status == Strophe.Status.CONNFAIL) {
+        log('Failed to connect.');
+      } else if (status == Strophe.Status.DISCONNECTING) {
+        log('Disconnecting...');
+      } else if (status == Strophe.Status.DISCONNECTED) {
+        log('Disconnected.');
+      } else if (status == Strophe.Status.CONNECTED) {
+        log('Connected.');
+
+        connection.addHandler(onMessage, null, 'message', null, null, null);
+        connection.send($pres().tree());
+      }
+    }
+
+    function onMessage(msg) {
+      var from = msg.getAttribute('from');
+      var body = msg.getElementsByTagName('body')[0];
+      var messageText = 'Message from ' + from + ': ' + Strophe.getText(body);
+      log(messageText);
+      displayMessage(messageText);
+
+      return true;
+    }
+
+    function connect() {
+    //   var BOSH_SERVICE = 'https://alumchat.lol/http-bind';
+      let BOSH_SERVICE = 'alumchat.lol'
+      connection = new Strophe.Connection(BOSH_SERVICE);
+      connection.connect('arg211024-test@alumchat.lol', '211024', onConnect);
+    }
+
+    function sendMessage() {
+      var msg = $msg({
+        to: 'echobot@alumchat.lol',
+        type: 'chat'
+      }).c('body').t('Hello, world!');
+      connection.send(msg.tree());
+    }
+  </script>
+</head>
+<body onload="connect();">
+  <h1>XMPP Client</h1>
+  <pre id="log"></pre>
+  <button onclick="sendMessage();">Send Message</button>
+  <div id="messages" style="border: 1px solid #000; padding: 10px; margin-top: 10px;">
+    <h2>Received Messages:</h2>
+  </div>
+</body>
+</html>
