@@ -1,10 +1,12 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const Client_XMPP = require('./Client_XMPP');
+const cors = require('cors');
 
 const app = express();
 
 app.use(bodyParser.json());
+app.use(cors());
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
@@ -21,4 +23,4 @@ app.post('/login', async (req, res) => {
         res.status(500).json({ message: 'Error while logging in', error: err.message });
     }
 });
-app.listen(3000)
+app.listen(8000)

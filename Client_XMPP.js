@@ -6,7 +6,17 @@ const netClient = require('net').Socket(); // Required for user registration
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Allows self-signed certificates
 
+/**
+ * Client_XMPP class for XMPP client functionalities
+ */
 class Client_XMPP {
+  /**
+   * Constructor for Client_XMPP
+   * @param {string} username - Username for the XMPP client
+   * @param {string} password - Password for the XMPP client
+   * @param {string} service - XMPP service URL
+   * @param {string} domain - XMPP domain
+   */
   constructor(username, password, service = 'xmpp://alumchat.lol:5222', domain = 'alumchat.lol') {
     this.username = username;
     this.password = password;
@@ -21,6 +31,9 @@ class Client_XMPP {
     this.receivedGroupChatInvites = [];
   }
 
+  /**
+   * Connects to the XMPP server
+   */
   async connect() {
     this.xmpp = client({
       service: this.service,
@@ -76,6 +89,9 @@ class Client_XMPP {
     });
   }
 
+  /**
+   * Deletes the user account from the XMPP server
+   */
   async deleteAccount() {
     const deleteRequest = xml('iq', { type: 'set', id: 'unreg1' }, xml('query', { xmlns: 'jabber:iq:register' }, xml('remove', {})));
     this.xmpp.send(deleteRequest).then(() => {
@@ -86,6 +102,10 @@ class Client_XMPP {
     });
   }
 
+  /**
+   * Adds a contact to the user's roster
+   * @param {string} jid - JID of the contact to be added
+   */
   async addContacts(jid) {
     const presence = xml('presence', { type: 'subscribe', to: jid + '@alumchat.lol' });
     this.xmpp.send(presence).then(() => {
@@ -95,6 +115,11 @@ class Client_XMPP {
     });
   }
 
+  /**
+   * Sends a file to a specified user
+   * @param {string} sendTo - JID of the recipient
+   * @param {string} filePath - Path to the file to be sent
+   */
   async sendFile(sendTo, filePath) {
     const user = sendTo + '@alumchat.lol';
 
@@ -108,6 +133,11 @@ class Client_XMPP {
     console.log('File sent successfully');
   }
 
+  /**
+   * Sends a file to a group chat
+   * @param {string} sendTo - JID of the group chat
+   * @param {string} filePath - Path to the file to be sent
+   */
   async sendFileGC(sendTo, filePath) {
     const user = sendTo;
 
@@ -121,6 +151,10 @@ class Client_XMPP {
     console.log('File sent successfully');
   }
 
+  /**
+   * Creates a group chat
+   * @param {string} roomName - Name of the group chat room
+   */
   async createGC(roomName) {
     const roomId = roomName + '@conference.alumchat.lol';
 
@@ -128,6 +162,11 @@ class Client_XMPP {
     console.log('Joined group chat successfully');
   }
 
+  /**
+   * Sets the presence message and status
+   * @param {string} presenceState - State of the presence (e.g., 'away', 'dnd', 'online')
+   * @param {string} message - Message to be set
+   */
   async setPresenceMessage(presenceState, message) {
     const presence = xml('presence', {}, xml('show', {}, presenceState), xml('status', {}, message));
     await this.xmpp.send(presence);
@@ -135,6 +174,9 @@ class Client_XMPP {
     console.log('Presence status and message set to: ', presenceState, message);
   }
 
+  /**
+   * Displays the user's contacts
+   */
   async mostrarUsuarios() {
     const requestContacts = xml(
       'iq',
@@ -163,6 +205,10 @@ class Client_XMPP {
     });
   }
 
+  /**
+   * Shows details of a specified user
+   * @param {string} jid - JID of the user to show details for
+   */
   async showUserDetails(jid) {
     const username = jid + '@alumchat.lol';
 
@@ -195,6 +241,11 @@ class Client_XMPP {
       });
   }
 
+  /**
+   * Registers a new user on the XMPP server
+   * @param {string} username - Username of the new user
+   * @param {string} password - Password of the new user
+   */
   async registerUser(username, password) {
     netClient.connect(5222, 'alumchat.lol', function () {
       netClient.write("<stream:stream to='alumchat.lol' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>");
@@ -225,6 +276,11 @@ class Client_XMPP {
     });
   }
 
+  /**
+   * Sends a message to a specified user
+   * @param {string} destinatario - JID of the recipient
+   * @param {string} mensaje - Message content
+   */
   async sendMessage(destinatario, mensaje) {
     const message = xml(
       'message',
