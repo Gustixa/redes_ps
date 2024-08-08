@@ -1,12 +1,13 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { AuthProvider } from '@contexts/AuthContext'
 import './App.css'
-import ProtectedRoute from '@routing/ProtectedRoute'
+import Routing from '@routing/routing'
 
 function App() {
-  const isUserValid = false
-
-
-  return <div>{isUserValid ? <Outlet/> : <Navigate to={"/login"}/>}</div>
+  return (
+    <AuthProvider>
+      <Routing/>
+    </AuthProvider>
+  ) 
 }
 
 export default App

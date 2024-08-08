@@ -17,10 +17,12 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    // Definicion para obtener abreviaciones en carpetas, ver vite.config.ts
     "paths": {
       "@pages/*": ["./src/pages/*"],
       "@routing/*": ["./src/routes/*"],
-
+      "@contexts/*": ["./src/context/*"],
+      "@components/*": ["./src/components/*"],
     },
     /* Linting */
     "strict": true,
