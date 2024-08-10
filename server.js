@@ -3,129 +3,81 @@ const bodyParser = require('body-parser')
 const { client, xml } = require('@xmpp/client')
 const cors = require('cors');
 
-const app = express()
-const port = 8000
-const domain = 'alumchat.lol'
+const PORT = 8000
+
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 app.use(bodyParser.json())
 app.use(cors());
 
-let xmpp = null
-let messages = {}
-let message = []
+const express = require('express');
+const bodyParser = require('body-parser');
+const Client_XMPP = require('./xmppClient'); // Importa la lógica XMPP
 
-const iniciarSesion = async (username, password) => {
-  xmpp = client({
-    service: `xmpp://${domain}:5222`,
-    domain,
-    username,
-    password
-  })
+const app = express();
+app.use(bodyParser.json());
 
-  xmpp.on('error', err => {
-    console.error(err)
-  })
-
-  xmpp.on('stanza', stanza => {
-    if (stanza.is('message')) {
-      const body = stanza.getChildText('body')
-      if (body) {
-        console.log(`Mensaje recibido de ${stanza.attrs.from}: ${body}`)
-      }
-    }
-
-    if (stanza.is('presence')) {
-      const status = stanza.getChildText('status') || 'Sin mensaje de presencia'
-      console.log(`Cambio en la presencia: ${stanza.attrs.from} - ${status}`)
-    }
-  })
-
-  await xmpp.start().catch(console.error)
-  return xmpp.jid.toString()
-}
-
-const cerrarSesion = async () => {
-  if (xmpp) {
-    await xmpp.stop()
-    console.log('Sesión cerrada exitosamente.')
-  } else {
-    console.log('No hay ninguna sesión activa.')
-  }
-}
-
-const enviarMensaje = async (destinatario, mensaje) => {
-  const message = xml(
-    'message',
-    { type: 'chat', to: destinatario },
-    xml('body', {}, mensaje)
-  )
-  await xmpp.send(message)
-  console.log(`Mensaje enviado a ${destinatario}`)
-}
-
-const agregarContacto = async (contacto) => {
-  const presence = xml('presence', { type: 'subscribe', to: contacto })
-  await xmpp.send(presence)
-  console.log(`Solicitud de suscripción enviada a ${contacto}`)
-}
-
-const definirMensajePresencia = async (mensaje) => {
-  const presence = xml('presence', {}, xml('status', {}, mensaje))
-  await xmpp.send(presence)
-  console.log('Mensaje de presencia actualizado')
-}
-
+// Endpoint para iniciar sesión
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body
-  try {
-    const jid = await iniciarSesion(username, password)
-    res.status(200).json({ message: 'Sesión iniciada', jid })
-  } catch (error) {
-    res.status(500).json({ message: 'Error al iniciar sesión', error: error.message })
-  }
-})
+    const { username, password } = req.body;
+    const client = new Client_XMPP(username, password);
+    
+    try {
+        await client.connect();
+        if (client.loginState) {
+            res.status(200).json({ message: "Logged in successfully" });
+        } else {
+            res.status(401).json({ message: "Login failed" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "Error logging in", error });
+    }
+});
 
-app.post('/logout', async (req, res) => {
-  try {
-    await cerrarSesion()
-    res.status(200).json({ message: 'Sesión cerrada' })
-  } catch (error) {
-    res.status(500).json({ message: 'Error al cerrar sesión', error: error.message })
-  }
-})
+// Endpoint para registrar un nuevo usuario
+app.post('/register', async (req, res) => {
+    const { username, password } = req.body;
+    const client = new Client_XMPP(username, password);
+    
+    try {
+        await client.registerUser(username, password);
+        res.status(201).json({ message: "User registered successfully" });
+    } catch (error) {
+        res.status(500).json({ message: "Error registering user", error });
+    }
+});
 
-app.post('/message', async (req, res) => {
-  const { destinatario, mensaje } = req.body
-  try {
-    await enviarMensaje(destinatario, mensaje)
-    res.status(200).json({ message: 'Mensaje enviado' })
-  } catch (error) {
-    res.status(500).json({ message: 'Error al enviar mensaje', error: error.message })
-  }
-})
+// Endpoint para enviar un mensaje
+app.post('/sendMessage', async (req, res) => {
+    const { username, password, destinatario, mensaje } = req.body;
+    const client = new Client_XMPP(username, password);
 
-app.post('/add-contact', async (req, res) => {
-  const { contacto } = req.body
-  try {
-    await agregarContacto(contacto)
-    res.status(200).json({ message: 'Contacto agregado' })
-  } catch (error) {
-    res.status(500).json({ message: 'Error al agregar contacto', error: error.message })
-  }
-})
+    try {
+        await client.connect();
+        await client.sendMessage(destinatario, mensaje);
+        res.status(200).json({ message: "Message sent successfully" });
+    } catch (error) {
+        res.status(500).json({ message: "Error sending message", error });
+    }
+});
 
-app.post('/presence', async (req, res) => {
-  const { mensaje } = req.body
-  try {
-    await definirMensajePresencia(mensaje)
-    res.status(200).json({ message: 'Mensaje de presencia actualizado' })
-  } catch (error) {
-    res.status(500).json({ message: 'Error al definir mensaje de presencia', error: error.message })
-  }
-})
+// Endpoint para agregar un contacto
+app.post('/addContact', async (req, res) => {
+    const { username, password, contact } = req.body;
+    const client = new Client_XMPP(username, password);
 
-app.listen(port, () => {
-  console.log(`API escuchando en http://localhost:${port}`)
-})
+    try {
+        await client.connect();
+        await client.addContacts(contact);
+        res.status(200).json({ message: "Contact added successfully" });
+    } catch (error) {
+        res.status(500).json({ message: "Error adding contact", error });
+    }
+});
+
+// Iniciar el servidor
+app.listen(PORT, () => {
+    console.log($`Server running on port ${PORT}`);
+});
+

@@ -2,61 +2,43 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '@contexts/AuthContext';
 
-
-interface Message {
-  from: string;
-  body: string;
-}
-
-interface Conversations {
-  [username: string]: Message[];
-}
-
 const Home: React.FC = () => {
   const { authUser } = useAuth();
-  const [conversations, setConversations] = useState<Conversations>({});
+  const [contacts, setContacts] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchConversations = async () => {
+    const fetchContacts = async () => {
       if (!authUser) return;
 
-      console.log('Fetching conversations for user:', authUser); // Verifica el valor de `user`
+      console.log('Fetching contacts for user:', authUser);
 
       try {
-        const response = await axios.get(`http://localhost:8000/conversations/${authUser.correo}`);
-        setConversations(response.data);
+        const response = await axios.get(`http://localhost:8000/contacts`, {
+          params: { username: authUser.correo }
+        });
+        setContacts(response.data);
       } catch (error) {
-        console.error('Error fetching conversations:', error);
+        console.error('Error fetching contacts:', error);
       }
     };
 
-    fetchConversations();
+    fetchContacts();
   }, [authUser]);
 
   return (
     <div>
-      <h1>Home</h1>
-      {Object.keys(conversations).length > 0 ? (
+      <h1>Contacts</h1>
+      {contacts.length > 0 ? (
         <div>
-          {Object.entries(conversations).map(([username, messages]) => (
-            <div key={username}>
-              <h2>{username}</h2>
-              {messages.length > 0 ? (
-                <ul>
-                  {messages.map((message, index) => (
-                    <li key={index}>
-                      <strong>{message.from}:</strong> {message.body}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No messages</p>
-              )}
-            </div>
-          ))}
+          <h2>Contacts List</h2>
+          <ul>
+            {contacts.map((contact, index) => (
+              <li key={index}>{contact}</li>
+            ))}
+          </ul>
         </div>
       ) : (
-        <p>Loading conversations...</p>
+        <p>Loading contacts...</p>
       )}
     </div>
   );
