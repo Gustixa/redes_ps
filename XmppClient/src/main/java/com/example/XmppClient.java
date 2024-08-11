@@ -1,5 +1,7 @@
 package com.example;
 
+import org.jivesoftware.smack.SmackException;
+import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.chat2.ChatManager;
@@ -11,25 +13,28 @@ import org.jxmpp.jid.EntityBareJid;
 import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.stringprep.XmppStringprepException;
 
+import java.io.IOException;
+
 public class XmppClient {
 
     private XMPPTCPConnection connection;
 
-    public void connect(String username, String password) throws XmppStringprepException, XMPPException, InterruptedException {
+    public void connect(String username, String password) throws XmppStringprepException, XMPPException, SmackException, IOException, InterruptedException {
         XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
                 .setXmppDomain("alumchat.lol")
                 .setHost("alumchat.lol")
-                .setPort(5222)
-                .setUsernameAndPassword("arg211024-test", "211024")
+                .setUsernameAndPassword(username, password)
+                .setSecurityMode(XMPPTCPConnectionConfiguration.SecurityMode.disabled) // Desactivar TLS/SSL
                 .build();
-
+    
         connection = new XMPPTCPConnection(config);
         connection.connect().login();
         
         System.out.println("Connected as: " + connection.getUser());
     }
+    
 
-    public void sendMessage(String toJid, String message) throws XmppStringprepException, InterruptedException {
+    public void sendMessage(String toJid, String message) throws XmppStringprepException, SmackException, InterruptedException, NotConnectedException, IOException {
         ChatManager chatManager = ChatManager.getInstanceFor(connection);
         EntityBareJid jid = JidCreate.entityBareFrom(toJid);
         chatManager.chatWith(jid).send(message);
@@ -46,19 +51,19 @@ public class XmppClient {
         });
     }
 
-    public void disconnect() {
+    public void disconnect() throws SmackException.NotConnectedException, IOException {
         if (connection != null && connection.isConnected()) {
             connection.disconnect();
             System.out.println("Disconnected");
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        XmppClient client = new XmppClient();
-        client.connect("username", "password");
-        client.addIncomingMessageListener();
-        client.sendMessage("someone@yourserver.com", "Hello from Smack!");
-        Thread.sleep(10000); // Wait to receive messages
-        client.disconnect();
+    public void addIncomingMessageListener(IncomingChatMessageListener listener) {
+        ChatManager chatManager = ChatManager.getInstanceFor(connection);
+        chatManager.addIncomingListener(listener);
+    }
+
+    public boolean isConnected() {
+        return connection != null && connection.isConnected();
     }
 }
