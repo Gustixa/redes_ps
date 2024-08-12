@@ -1,7 +1,12 @@
+com/example/ChatWindow.class
+com/example/ChatWindow$1.class
 com/example/App.class
 com/example/SimpleGuiApp$1$1.class
+com/example/ChatWindow$2.class
+com/example/LoginWindow.class
 com/example/SimpleGuiApp$1.class
 com/example/XmppClient$1.class
 com/example/SimpleGuiApp$2.class
 com/example/SimpleGuiApp.class
 com/example/XmppClient.class
+com/example/LoginWindow$1.class
