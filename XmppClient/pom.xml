@@ -8,6 +8,7 @@
   <name>XmppClient</name>
 
   <dependencies>
+    <!-- Smack dependencies -->
     <dependency>
       <groupId>org.igniterealtime.smack</groupId>
       <artifactId>smack-core</artifactId>
@@ -63,11 +64,12 @@
       <artifactId>jxmpp-jid</artifactId>
       <version>1.0.2</version>
     </dependency>
-    <!-- Dependencia para JUnit 5 -->
+    
+    <!-- JUnit dependencies -->
     <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter-api</artifactId>
-        <version>5.8.2</version> <!-- Usa la versión más reciente disponible -->
+        <version>5.8.2</version>
         <scope>test</scope>
     </dependency>
     <dependency>
@@ -82,10 +84,34 @@
       <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
+    
+    <!-- FlatLaf dependency for theming -->
     <dependency>
       <groupId>com.formdev</groupId>
       <artifactId>flatlaf</artifactId>
       <version>2.0</version>
+    </dependency>
+    
+    <!-- JavaFX dependencies -->
+    <dependency>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-controls</artifactId>
+        <version>21</version>
+    </dependency>
+    <dependency>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-fxml</artifactId>
+        <version>21</version>
+    </dependency>
+    <dependency>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-base</artifactId>
+        <version>21</version>
+    </dependency>
+    <dependency>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-graphics</artifactId>
+        <version>21</version>
     </dependency>
   </dependencies>
 
@@ -108,7 +134,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.0.0</version>
         <configuration>
-          <mainClass>com.example.App</mainClass>
+          <mainClass>com.example.App</mainClass> <!-- Usa App.java como clase principal -->
         </configuration>
       </plugin>
     </plugins>

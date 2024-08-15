@@ -1,18 +1,34 @@
 package com.example;
 
-import org.jivesoftware.smack.SmackException;
+import org.jivesoftware.smack.*;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
-import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.chat2.ChatManager;
 import org.jivesoftware.smack.chat2.IncomingChatMessageListener;
-import org.jivesoftware.smack.chat2.OutgoingChatMessageListener;
+import org.jivesoftware.smack.roster.Roster;
+import org.jivesoftware.smack.roster.RosterEntry;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
+import org.jivesoftware.smack.packet.Presence;
+import org.jivesoftware.smack.packet.PresenceBuilder;
+import org.jivesoftware.smackx.filetransfer.FileTransferManager;
+import org.jivesoftware.smackx.filetransfer.OutgoingFileTransfer;
+import org.jivesoftware.smackx.iqregister.AccountManager;
+import org.jivesoftware.smackx.muc.MultiUserChat;
+import org.jivesoftware.smackx.muc.MultiUserChatManager;
+import org.jivesoftware.smackx.receipts.DeliveryReceiptManager;
+import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.EntityBareJid;
 import org.jxmpp.jid.impl.JidCreate;
+import org.jxmpp.jid.parts.Localpart;
+import org.jxmpp.jid.parts.Resourcepart;
 import org.jxmpp.stringprep.XmppStringprepException;
+import org.jivesoftware.smack.packet.Presence.Mode;
+import org.jivesoftware.smack.packet.Presence.Type;
 
+
+import java.util.List;
+import java.util.ArrayList;
+import java.io.File;
 import java.io.IOException;
 
 public class XmppClient {
@@ -26,13 +42,29 @@ public class XmppClient {
                 .setUsernameAndPassword(username, password)
                 .setSecurityMode(XMPPTCPConnectionConfiguration.SecurityMode.disabled) // Desactivar TLS/SSL
                 .build();
-    
+
         connection = new XMPPTCPConnection(config);
         connection.connect().login();
-        
+
         System.out.println("Connected as: " + connection.getUser());
     }
-    
+
+    public void registerAccount(String username, String password) throws XmppStringprepException, SmackException, IOException, InterruptedException, XMPPException {
+        AccountManager accountManager = AccountManager.getInstance(connection);
+        if (accountManager.supportsAccountCreation()) {
+            accountManager.sensitiveOperationOverInsecureConnection(true);
+            accountManager.createAccount(Localpart.from(username), password);
+            System.out.println("Account registered: " + username);
+        } else {
+            System.out.println("Account creation not supported.");
+        }
+    }
+
+    public void deleteAccount() throws SmackException.NotLoggedInException, SmackException.NoResponseException, XMPPException.XMPPErrorException, SmackException.NotConnectedException, InterruptedException {
+        AccountManager accountManager = AccountManager.getInstance(connection);
+        accountManager.deleteAccount();
+        System.out.println("Account deleted.");
+    }
 
     public void sendMessage(String toJid, String message) throws XmppStringprepException, SmackException, InterruptedException, NotConnectedException, IOException {
         ChatManager chatManager = ChatManager.getInstanceFor(connection);
@@ -41,29 +73,110 @@ public class XmppClient {
         System.out.println("Message sent to " + toJid + ": " + message);
     }
 
-    public void addIncomingMessageListener() {
-        ChatManager chatManager = ChatManager.getInstanceFor(connection);
-        chatManager.addIncomingListener(new IncomingChatMessageListener() {
-            @Override
-            public void newIncomingMessage(EntityBareJid from, org.jivesoftware.smack.packet.Message message, org.jivesoftware.smack.chat2.Chat chat) {
-                System.out.println("Received message from " + from + ": " + message.getBody());
-            }
-        });
-    }
-
-    public void disconnect() throws SmackException.NotConnectedException, IOException {
-        if (connection != null && connection.isConnected()) {
-            connection.disconnect();
-            System.out.println("Disconnected");
-        }
-    }
-
     public void addIncomingMessageListener(IncomingChatMessageListener listener) {
         ChatManager chatManager = ChatManager.getInstanceFor(connection);
         chatManager.addIncomingListener(listener);
     }
 
+    // Método para obtener la lista de contactos
+    public List<String> getContactList() throws Exception {
+        List<String> contacts = new ArrayList<>();
+        Roster roster = Roster.getInstanceFor(connection);
+        for (RosterEntry entry : roster.getEntries()) {
+            contacts.add(entry.getJid().toString());
+        }
+        return contacts;
+    }
+
+    // Método para establecer el mensaje de presencia utilizando PresenceBuilder
+    public void setPresence(String statusMessage, Mode mode) throws SmackException.NotConnectedException, InterruptedException {
+        Presence presence = PresenceBuilder.buildPresence()
+                .ofType(Type.available)    // Puedes ajustar el tipo de presencia aquí
+                .setMode(mode)             // Establece el modo de presencia (available, away, etc.)
+                .setStatus(statusMessage)  // Establece el mensaje de estado
+                .build();
+        
+        connection.sendStanza(presence);
+    }
+
+    // Método para desconectar del servidor XMPP
+    public void disconnect() throws SmackException.NotConnectedException {
+        if (connection != null && connection.isConnected()) {
+            connection.disconnect();
+        }
+    }
+
     public boolean isConnected() {
         return connection != null && connection.isConnected();
+    }
+
+    public void addContact(String jid, String name) throws XmppStringprepException, SmackException.NotLoggedInException, SmackException.NoResponseException, XMPPException.XMPPErrorException, SmackException.NotConnectedException, InterruptedException {
+        Roster roster = Roster.getInstanceFor(connection);
+        BareJid bareJid = JidCreate.bareFrom(jid);
+
+        if (!roster.contains(bareJid)) {
+            // Enviar solicitud de suscripción
+            Presence subscribe = PresenceBuilder.buildPresence()
+                    .ofType(Presence.Type.subscribe)
+                    .to(bareJid)
+                    .build();
+
+            connection.sendStanza(subscribe);
+
+            System.out.println("Subscription request sent to: " + jid);
+        } else {
+            System.out.println("Contact already exists: " + jid);
+        }
+    }
+
+    public void showContacts() throws SmackException.NotLoggedInException, SmackException.NotConnectedException, InterruptedException {
+        Roster roster = Roster.getInstanceFor(connection);
+        for (RosterEntry entry : roster.getEntries()) {
+            Presence presence = roster.getPresence(entry.getJid());
+            System.out.println(entry.getName() + " (" + entry.getJid() + "): " + presence.getType());
+        }
+    }
+
+    public void showContactDetails(String jid) throws XmppStringprepException, SmackException.NotLoggedInException, SmackException.NotConnectedException, InterruptedException {
+        Roster roster = Roster.getInstanceFor(connection);
+        BareJid bareJid = JidCreate.bareFrom(jid);
+        RosterEntry entry = roster.getEntry(bareJid);
+        if (entry != null) {
+            System.out.println("Name: " + entry.getName());
+            System.out.println("JID: " + entry.getJid());
+            System.out.println("Groups: " + entry.getGroups());
+            System.out.println("Subscription: " + entry.getType());
+        } else {
+            System.out.println("Contact not found: " + jid);
+        }
+    }
+
+    public void joinGroupChat(String roomName, String nickname) throws XmppStringprepException, SmackException, IOException, InterruptedException, XMPPException {
+        MultiUserChatManager manager = MultiUserChatManager.getInstanceFor(connection);
+        EntityBareJid mucJid = JidCreate.entityBareFrom(roomName + "@conference.alumchat.lol");
+        MultiUserChat muc = manager.getMultiUserChat(mucJid);
+        muc.join(Resourcepart.from(nickname));
+        System.out.println("Joined group chat: " + roomName);
+    }
+
+    public void setPresence(Presence.Type type, String status) throws SmackException.NotConnectedException, InterruptedException {
+        Presence presence = PresenceBuilder.buildPresence().ofType(type).setStatus(status).build();
+        connection.sendStanza(presence);
+        System.out.println("Presence set to: " + type + " (" + status + ")");
+    }
+
+    public void setupDeliveryReceipts() {
+        DeliveryReceiptManager receiptManager = DeliveryReceiptManager.getInstanceFor(connection);
+        receiptManager.setAutoReceiptMode(DeliveryReceiptManager.AutoReceiptMode.always);
+        receiptManager.addReceiptReceivedListener((fromJid, toJid, receiptId, stanza) -> {
+            System.out.println("Message delivered to " + fromJid);
+        });
+    }
+
+    public void sendFile(String toJid, File file) throws XmppStringprepException, SmackException, InterruptedException, IOException {
+        FileTransferManager manager = FileTransferManager.getInstanceFor(connection);
+        OutgoingFileTransfer transfer = manager.createOutgoingFileTransfer(JidCreate.entityFullFrom(toJid + "/Smack"));
+        transfer.sendFile(file, "Sending file");
+        System.out.println("File sent to " + toJid);
     }
 }
