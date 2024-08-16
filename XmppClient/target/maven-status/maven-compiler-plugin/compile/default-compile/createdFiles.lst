@@ -1,5 +1,9 @@
-com/example/RegisterWindow.class
 com/example/App.class
+com/example/XmppClient$2.class
+com/example/LoginWindow.class
+com/example/XmppClient$1.class
+com/example/RegisterWindow.class
 com/example/XmppClient.class
 com/example/XmppChatApp.class
-com/example/LoginWindow.class
+com/example/XmppChatApp$1.class
+com/example/MamQueryIQ.class
