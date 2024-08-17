@@ -60,14 +60,18 @@ public class RegisterWindow extends Application {
         registerButton.setOnAction(e -> {
             String username = usernameField.getText();
             String password = passwordField.getText();
+            System.out.println(username + " : " + password);
 
             try {
                 // Intentar registrar una nueva cuenta en el servidor XMPP
-                xmppClient.connect("", "");  // Conectar sin credenciales para acceder al AccountManager
+                xmppClient.connect("arg211024", "211024");  // Conectar sin credenciales para acceder al AccountManager
                 xmppClient.registerAccount(username, password);
+                 // Desconectar correctamente
+                // xmppClient.disconnect();
                 Alert alert = new Alert(Alert.AlertType.INFORMATION, "Account registered successfully.");
                 alert.showAndWait();
                 primaryStage.close();  // Cerrar la ventana de registro después de registrar
+                redirigirPantallaPrincipal(username, password);
             } catch (Exception ex) {
                 Alert alert = new Alert(Alert.AlertType.ERROR, "Registration failed: " + ex.getMessage());
                 alert.showAndWait();
@@ -90,5 +94,21 @@ public class RegisterWindow extends Application {
         primaryStage.setTitle("Register");
         primaryStage.setScene(scene);
         primaryStage.show();
+    }
+
+    /**
+     * Metodo para redigir a la pantalla principal de conversaciones.
+     * 
+     * @param username, usuario actualmente registrado
+     * @param password, password actualmente registrado
+     */
+    private void redirigirPantallaPrincipal(String username, String password){
+        XmppChatApp chatApp = new XmppChatApp();
+        chatApp.setCredentials(username, password);
+        try{
+            chatApp.start(new Stage());
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
     }
 }

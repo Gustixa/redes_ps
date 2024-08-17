@@ -1,5 +1,6 @@
 package com.example;
 
+import org.jivesoftware.smack.chat2.ChatManager;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
@@ -8,8 +9,10 @@ import java.util.Collection;
 
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.Jid;
+import org.jxmpp.jid.impl.JidCreate;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -41,6 +44,7 @@ public class XmppChatApp extends Application {
     private Label presenceLabel;
     private TextField presenceField;
     private Button updatePresenceButton;
+    private Button showDetailsButton;
 
     /**
      * Establece las credenciales para el cliente XMPP.
@@ -79,13 +83,17 @@ public class XmppChatApp extends Application {
         presenceField = new TextField();
         updatePresenceButton = new Button("Update Presence");
 
+        // Buton para mostrar detalles del contacto
+        showDetailsButton = new Button("Show Details");
+        showDetailsButton.setOnAction(e -> showContactDetails());
+
         sendButton.setOnAction(e -> sendMessage());
         addUserButton.setOnAction(e -> addUser());
         logoutButton.setOnAction(e -> logout(primaryStage));
         deleteAccountButton.setOnAction(e -> deleteAccount(primaryStage));
         updatePresenceButton.setOnAction(e -> updatePresence());
 
-        VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton);
+        VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, showDetailsButton ,presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton);
         leftPane.setPadding(new Insets(10));
 
         HBox bottomPane = new HBox(10, messageField, sendButton);
@@ -112,41 +120,47 @@ public class XmppChatApp extends Application {
     private void connectToXmpp() {
         try {
             xmppClient.connect(username, password);
+            
+            // Obtener el ChatManager y añadir un listener global para mensajes entrantes
             xmppClient.addIncomingMessageListener((from, message, chat) -> {
-                chatArea.appendText(from + ": " + message.getBody() + "\n");
+                Platform.runLater(() -> {
+                    String fromUser = from.asBareJid().toString();
+                    chatArea.appendText(fromUser + ": " + message.getBody() + "\n");
+                });
             });
-
-            // Obtener el Roster y registrar el RosterListener
+    
+            // Configurar el Roster y añadir el listener para cambios en la lista de contactos
             Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
             roster.addRosterListener(new RosterListener() {
                 @Override
                 public void entriesAdded(Collection<Jid> addresses) {
                     updateContactList();
                 }
-
+    
                 @Override
                 public void entriesUpdated(Collection<Jid> addresses) {
                     updateContactList();
                 }
-
+    
                 @Override
                 public void entriesDeleted(Collection<Jid> addresses) {
                     updateContactList();
                 }
-
+    
                 @Override
                 public void presenceChanged(Presence presence) {
                     updateContactList();
                 }
             });
-
+    
             updateContactList(); // Cargar los contactos iniciales después de conectarse
-
+    
         } catch (Exception e) {
             e.printStackTrace();
             showAlert(Alert.AlertType.ERROR, "Connection Failed", "Failed to connect to the XMPP server.");
         }
     }
+    
 
     
     /**
@@ -220,6 +234,7 @@ private void updateContactList() {
     private void logout(Stage primaryStage) {
         try {
             xmppClient.disconnect();
+            // stop();
             primaryStage.close();
             LoginWindow loginWindow = new LoginWindow();
             loginWindow.start(new Stage());
@@ -250,6 +265,7 @@ private void updateContactList() {
             }
         }
     }
+
     /**
      * Actualiza el estado de presencia del usuario en el servidor XMPP.
      */
@@ -283,15 +299,40 @@ private void updateContactList() {
     }
 
     /**
-     * Desconecta del servidor XMPP cuando se detiene la aplicación.
-     *
-     * @throws Exception Si ocurre un error durante el proceso de desconexión.
+     * 
      */
-    @Override
-    public void stop() throws Exception {
-        if (xmppClient.isConnected()) {
-            xmppClient.disconnect();
+    private void showContactDetails() {
+        String selectedUser = contactList.getSelectionModel().getSelectedItem();
+        if (selectedUser != null) {
+            try {
+                // Extraer el JID del contacto de la cadena seleccionada en la lista
+                String contactJidStr = selectedUser.split(" ")[0];
+                BareJid contactJid = JidCreate.bareFrom(contactJidStr); // Convertir el String a BareJid
+
+                Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
+                RosterEntry entry = roster.getEntry(contactJid);
+
+                if (entry != null) {
+                    Presence presence = roster.getPresence(contactJid);
+                    String presenceStatus = presence.isAvailable() ? presence.getMode().toString() : "Offline";
+                    String presenceMessage = presence.getStatus();
+
+                    String details = "JID: " + contactJid +
+                                    "\nStatus: " + presenceStatus +
+                                    "\nMessage: " + (presenceMessage != null ? presenceMessage : "No status message");
+
+                    showAlert(Alert.AlertType.INFORMATION, "Contact Details", details);
+                } else {
+                    showAlert(Alert.AlertType.WARNING, "Warning", "Contact not found in the roster.");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to retrieve contact details.");
+            }
+        } else {
+            showAlert(Alert.AlertType.WARNING, "Warning", "Please select a contact first.");
         }
-        super.stop();
     }
+
+
 }
