@@ -2,6 +2,7 @@ package com.example;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -9,12 +10,21 @@ import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 
+/**
+ * Clase RegisterWindow que extiende Application y proporciona una interfaz gráfica para que los usuarios registren una nueva cuenta en la aplicación XMPP.
+ */
 public class RegisterWindow extends Application {
 
     private XmppClient xmppClient;
 
+    /**
+     * Método principal que lanza la aplicación de registro JavaFX.
+     *
+     * @param primaryStage La ventana principal de la aplicación.
+     */
     @Override
     public void start(Stage primaryStage) {
         xmppClient = new XmppClient();
@@ -29,6 +39,11 @@ public class RegisterWindow extends Application {
         Button registerButton = new Button("Register");
         Button backButton = new Button("Back");
 
+        // Crear un HBox para centrar los botones
+        HBox buttonBox = new HBox(10); // Espaciado de 10 píxeles entre los botones
+        buttonBox.setAlignment(Pos.CENTER);
+        buttonBox.getChildren().addAll(backButton, registerButton);
+
         // Configurar el layout
         GridPane gridPane = new GridPane();
         gridPane.setPadding(new Insets(10));
@@ -39,8 +54,7 @@ public class RegisterWindow extends Application {
         gridPane.add(usernameField, 1, 0);
         gridPane.add(passwordLabel, 0, 1);
         gridPane.add(passwordField, 1, 1);
-        gridPane.add(registerButton, 1, 2);
-        gridPane.add(backButton, 0, 2);
+        gridPane.add(buttonBox, 1, 2); // Añadir el HBox con los botones centrados
 
         // Configurar evento del botón de registro
         registerButton.setOnAction(e -> {
@@ -76,9 +90,5 @@ public class RegisterWindow extends Application {
         primaryStage.setTitle("Register");
         primaryStage.setScene(scene);
         primaryStage.show();
-    }
-
-    public static void main(String[] args) {
-        launch(args);
     }
 }

@@ -2,6 +2,7 @@ package com.example;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -9,12 +10,30 @@ import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 
+/**
+ * Clase LoginWindow que extiende Application y proporciona una interfaz gráfica para que los usuarios inicien sesión en la aplicación XMPP.
+ */
 public class LoginWindow extends Application {
 
     private XmppClient xmppClient;
 
+    /**
+     * Método principal que lanza la aplicación JavaFX.
+     *
+     * @param args Argumentos de la línea de comandos.
+     */
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    /**
+     * Método de inicio que configura la ventana de inicio de sesión y los elementos de la interfaz gráfica de usuario (GUI).
+     *
+     * @param primaryStage La ventana principal de la aplicación.
+     */
     @Override
     public void start(Stage primaryStage) {
         xmppClient = new XmppClient();
@@ -29,6 +48,11 @@ public class LoginWindow extends Application {
         Button loginButton = new Button("Login");
         Button registerButton = new Button("Register");
 
+        // Crear un HBox para centrar los botones
+        HBox buttonBox = new HBox(10); // Espaciado de 10 píxeles entre los botones
+        buttonBox.setAlignment(Pos.CENTER);
+        buttonBox.getChildren().addAll(registerButton, loginButton);
+
         // Configurar el layout
         GridPane gridPane = new GridPane();
         gridPane.setPadding(new Insets(10));
@@ -39,8 +63,7 @@ public class LoginWindow extends Application {
         gridPane.add(usernameField, 1, 0);
         gridPane.add(passwordLabel, 0, 1);
         gridPane.add(passwordField, 1, 1);
-        gridPane.add(loginButton, 1, 2);
-        gridPane.add(registerButton, 0, 2);
+        gridPane.add(buttonBox, 1, 2); // Añadir el HBox con los botones centrados
 
         // Configurar evento del botón de login
         loginButton.setOnAction(e -> {
@@ -77,6 +100,13 @@ public class LoginWindow extends Application {
         primaryStage.show();
     }
 
+    /**
+     * Valida las credenciales de inicio de sesión intentando conectar con el servidor XMPP.
+     *
+     * @param username El nombre de usuario ingresado.
+     * @param password La contraseña ingresada.
+     * @return true si las credenciales son válidas y la conexión se establece correctamente; false en caso contrario.
+     */
     private boolean validateLogin(String username, String password) {
         try {
             // Intentar conectar con el servidor XMPP usando las credenciales proporcionadas
@@ -88,6 +118,13 @@ public class LoginWindow extends Application {
         }
     }
 
+    /**
+     * Lanza la aplicación de chat XMPP y cierra la ventana de inicio de sesión.
+     *
+     * @param primaryStage La ventana principal de la aplicación.
+     * @param username El nombre de usuario ingresado.
+     * @param password La contraseña ingresada.
+     */
     private void launchChatApp(Stage primaryStage, String username, String password) {
         // Ocultar la ventana de login
         primaryStage.close();
@@ -100,9 +137,5 @@ public class LoginWindow extends Application {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public static void main(String[] args) {
-        launch(args);
     }
 }
