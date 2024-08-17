@@ -3,14 +3,11 @@ package com.example;
 import org.jivesoftware.smack.*;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.chat2.ChatManager;
-import org.jivesoftware.smack.chat2.Chat;
 import org.jivesoftware.smack.chat2.IncomingChatMessageListener;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
-import org.jivesoftware.smack.roster.RosterListener;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
-import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.PresenceBuilder;
 import org.jivesoftware.smackx.filetransfer.FileTransferManager;
@@ -21,34 +18,22 @@ import org.jivesoftware.smackx.muc.MultiUserChatManager;
 import org.jivesoftware.smackx.receipts.DeliveryReceiptManager;
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.EntityBareJid;
-import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.jid.parts.Localpart;
 import org.jxmpp.jid.parts.Resourcepart;
 import org.jxmpp.stringprep.XmppStringprepException;
-
-import javafx.application.Platform;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
-
 import org.jivesoftware.smack.packet.Presence.Mode;
 import org.jivesoftware.smack.packet.Presence.Type;
 
 
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.io.File;
 import java.io.IOException;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class XmppClient {
 
     private XMPPTCPConnection connection;
-    private final Map<String, List<String>> messageHistory = new HashMap<>(); // Mapa para guardar el historial de mensajes
 
     public void connect(String username, String password) throws XmppStringprepException, XMPPException, SmackException, IOException, InterruptedException {
         XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
@@ -62,25 +47,6 @@ public class XmppClient {
         connection.connect().login();
 
         System.out.println("Connected as: " + connection.getUser());
-                // Añadir el listener para los mensajes entrantes
-        // Añadir el listener para los mensajes entrantes
-        addIncomingMessageListener(new IncomingChatMessageListener() {
-            @Override
-            public void newIncomingMessage(EntityBareJid fromJid, Message message, Chat chat) {
-                // Guardar el mensaje en el historial
-                String from = fromJid.toString();
-                messageHistory.computeIfAbsent(from, k -> new ArrayList<>()).add(from + ": " + message.getBody());
-                System.out.println("Received message from " + from + ": " + message.getBody());
-                
-                // Actualizar el área de chat si el contacto está seleccionado
-                Platform.runLater(() -> updateChatArea(from));
-            }
-        });
-
-    }
-
-    public AbstractXMPPConnection getConnection() {
-        return connection;
     }
 
     public void registerAccount(String username, String password) throws XmppStringprepException, SmackException, IOException, InterruptedException, XMPPException {
@@ -213,76 +179,4 @@ public class XmppClient {
         transfer.sendFile(file, "Sending file");
         System.out.println("File sent to " + toJid);
     }
-
-    public void addPresenceListener() {
-        Roster roster = Roster.getInstanceFor(connection);
-        roster.addRosterListener(new RosterListener() {
-            @Override
-            public void entriesAdded(Collection<Jid> addresses) {
-                // Manejar entradas añadidas
-            }
-
-            @Override
-            public void entriesUpdated(Collection<Jid> addresses) {
-                // Manejar entradas actualizadas
-            }
-
-            @Override
-            public void entriesDeleted(Collection<Jid> addresses) {
-                // Manejar entradas eliminadas
-            }
-
-            @Override
-            public void presenceChanged(Presence presence) {
-                // Manejar cambios de presencia
-                System.out.println("Presence changed: " + presence.getFrom() + " " + presence);
-            }
-        });
-    }
-
-    private void handleSubscriptionRequest(BareJid from) {
-        // Aquí podrías mostrar un cuadro de diálogo en la interfaz de usuario para que el usuario acepte o rechace la solicitud
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Subscription Request");
-        alert.setHeaderText("New subscription request from: " + from);
-        alert.setContentText("Do you want to accept this subscription request?");
-
-        ButtonType buttonYes = new ButtonType("Yes");
-        ButtonType buttonNo = new ButtonType("No", ButtonBar.ButtonData.CANCEL_CLOSE);
-
-        alert.getButtonTypes().setAll(buttonYes, buttonNo);
-
-        alert.showAndWait().ifPresent(type -> {
-            if (type == buttonYes) {
-                try {
-                    acceptSubscription(from);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else if (type == buttonNo) {
-                try {
-                    rejectSubscription(from);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
-
-    private void acceptSubscription(BareJid from) throws SmackException.NotConnectedException, InterruptedException {
-        Presence subscribed = PresenceBuilder.buildPresence()
-                .ofType(Presence.Type.subscribed)
-                .build();
-        connection.sendStanza(subscribed);
-        System.out.println("Subscription accepted from: " + from);
-    }
-    
-
-    private void rejectSubscription(BareJid from) throws SmackException.NotConnectedException, InterruptedException {
-        Presence unsubscribed = PresenceBuilder.buildPresence()
-                .ofType(Presence.Type.unsubscribed)
-                .build();
-        connection.sendStanza(unsubscribed);
-        System.out.println("Subscription rejected from: " + from);
-    }       
 }

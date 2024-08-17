@@ -1,17 +1,8 @@
 package com.example;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.jivesoftware.smack.packet.Presence;
-import org.jivesoftware.smack.roster.Roster;
-import org.jivesoftware.smack.roster.RosterListener;
-import org.jxmpp.jid.Jid;
 
 import javafx.application.Application;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -38,8 +29,6 @@ public class XmppChatApp extends Application {
     private TextField presenceField;
     private Button updatePresenceButton;
 
-    private Map<String, StringBuilder> conversations = new HashMap<>();
-
     public void setCredentials(String username, String password) {
         this.username = username;
         this.password = password;
@@ -47,6 +36,7 @@ public class XmppChatApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        // Crear elementos de la interfaz
         contactList = new ListView<>();
         chatArea = new TextArea();
         chatArea.setEditable(false);
@@ -84,22 +74,11 @@ public class XmppChatApp extends Application {
 
         Scene scene = new Scene(root, 800, 600);
 
-                // Aquí es donde agregas el listener a la lista de contactos
-        contactList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue != null) {
-                updateChatArea(newValue);
-            }
-        });
         primaryStage.setTitle("XmppClient");
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        contactList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue != null) {
-                updateChatArea(newValue);
-            }
-        });
-
+        // Conectar con XMPP usando las credenciales
         connectToXmpp();
     }
 
@@ -107,41 +86,8 @@ public class XmppChatApp extends Application {
         try {
             xmppClient.connect(username, password);
             xmppClient.addIncomingMessageListener((from, message, chat) -> {
-                Platform.runLater(() -> {
-                    String sender = from.asEntityBareJidString();
-                    StringBuilder conversation = conversations.getOrDefault(sender, new StringBuilder());
-                    conversation.append(sender).append(": ").append(message.getBody()).append("\n");
-                    conversations.put(sender, conversation);
-
-                    if (sender.equals(contactList.getSelectionModel().getSelectedItem())) {
-                        updateChatArea(sender);
-                    }
-                });
+                chatArea.appendText(from + ": " + message.getBody() + "\n");
             });
-
-            Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
-            roster.addRosterListener(new RosterListener() {
-                @Override
-                public void entriesAdded(Collection<Jid> addresses) {
-                    Platform.runLater(() -> updateContactList());
-                }
-
-                @Override
-                public void entriesUpdated(Collection<Jid> addresses) {
-                    Platform.runLater(() -> updateContactList());
-                }
-
-                @Override
-                public void entriesDeleted(Collection<Jid> addresses) {
-                    Platform.runLater(() -> updateContactList());
-                }
-
-                @Override
-                public void presenceChanged(Presence presence) {
-                    Platform.runLater(() -> updateContactList());
-                }
-            });
-
             updateContactList();
         } catch (Exception e) {
             e.printStackTrace();
@@ -152,30 +98,14 @@ public class XmppChatApp extends Application {
     private void updateContactList() {
         try {
             contactList.getItems().clear();
-            List<String> contacts = xmppClient.getContactList();
-            if (contacts != null) {
-                contactList.getItems().addAll(contacts);
+            for (String contact : xmppClient.getContactList()) {
+                contactList.getItems().add(contact);
             }
         } catch (Exception e) {
             e.printStackTrace();
             showAlert(Alert.AlertType.ERROR, "Error", "Failed to retrieve contact list.");
         }
     }
-
-    private void updateChatArea(String userJid) {
-        // Obtener historial de mensajes del contacto seleccionado
-        List<String> conversation = messageHistory.get(userJid);
-        if (conversation != null) {
-            chatArea.clear(); // Limpia el área de chat
-            for (String message : conversation) {
-                chatArea.appendText(message + "\n"); // Muestra cada mensaje en el área de chat
-            }
-        } else {
-            chatArea.setText("No se encontró ninguna conversación para: " + userJid);
-        }
-    }
-    
-    
 
     private void sendMessage() {
         String selectedUser = contactList.getSelectionModel().getSelectedItem();
@@ -184,10 +114,6 @@ public class XmppChatApp extends Application {
         if (selectedUser != null && !message.isEmpty()) {
             try {
                 xmppClient.sendMessage(selectedUser, message);
-                StringBuilder conversation = conversations.getOrDefault(selectedUser, new StringBuilder());
-                conversation.append("Me: ").append(message).append("\n");
-                conversations.put(selectedUser, conversation);
-
                 chatArea.appendText("Me: " + message + "\n");
                 messageField.clear();
             } catch (Exception e) {
@@ -244,20 +170,21 @@ public class XmppChatApp extends Application {
         }
     }
 
-    private void updatePresence() {
-        String presenceMessage = presenceField.getText();
-        if (presenceMessage != null && !presenceMessage.isEmpty()) {
-            try {
-                xmppClient.setPresence(presenceMessage, Presence.Mode.available);
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Presence updated successfully.");
-            } catch (Exception e) {
-                e.printStackTrace();
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to update presence.");
-            }
-        } else {
-            showAlert(Alert.AlertType.WARNING, "Warning", "Please enter a presence message.");
+private void updatePresence() {
+    String presenceMessage = presenceField.getText();
+    if (presenceMessage != null && !presenceMessage.isEmpty()) {
+        try {
+            xmppClient.setPresence(presenceMessage, Presence.Mode.available); // Puedes cambiar el modo según lo que desees
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Presence updated successfully.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to update presence.");
         }
+    } else {
+        showAlert(Alert.AlertType.WARNING, "Warning", "Please enter a presence message.");
     }
+}
+
 
     private void showAlert(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type);
@@ -272,5 +199,9 @@ public class XmppChatApp extends Application {
             xmppClient.disconnect();
         }
         super.stop();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
     }
 }
