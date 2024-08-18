@@ -13,7 +13,6 @@ import org.jivesoftware.smack.packet.PresenceBuilder;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
 import org.jivesoftware.smack.roster.RosterListener;
-import org.jivesoftware.smackx.forward.packet.Forwarded;
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
@@ -34,6 +33,9 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import java.util.ArrayList;
+
+import org.jivesoftware.smack.packet.MessageBuilder;
 
 public class XmppChatApp extends Application {
 
@@ -53,11 +55,14 @@ public class XmppChatApp extends Application {
     private TextField presenceField;
     private Button updatePresenceButton;
     private Button showDetailsButton;
+    private Button createGroupButton;
 
     private Map<String, StringBuilder> conversations = new HashMap<>();
     private ListView<String> notificationList;
-
-
+    private List<String> groupList = new ArrayList<>(); // Lista para almacenar los nombres de los grupos creados
+    private ListView<String> groupListView = new ListView<>(); // ListView para mostrar los grupos creados
+    
+    
     public void setCredentials(String username, String password) {
         this.username = username;
         this.password = password;
@@ -70,9 +75,8 @@ public class XmppChatApp extends Application {
         chatArea.setEditable(false);
 
         notificationList = new ListView<>();
-        notificationList.setPrefHeight(200); // Aumenta la altura preferida para el cuadro de notificaciones
-        notificationList.setPrefWidth(250);
-
+        notificationList.setPrefHeight(500); // Aumenta la altura preferida para el cuadro de notificaciones
+        notificationList.setPrefWidth(350);
 
         notificationList.setOnMouseClicked(event -> {
             String selectedNotification = notificationList.getSelectionModel().getSelectedItem();
@@ -83,7 +87,11 @@ public class XmppChatApp extends Application {
             }
         });
 
-        VBox rightPane = new VBox(10, notificationList);
+            // Área para grupos
+        groupListView = new ListView<>();
+        groupListView.setPrefHeight(500); // Ajusta la altura preferida para el cuadro de grupos
+
+        VBox rightPane = new VBox(10, notificationList, groupListView);
         rightPane.setPadding(new Insets(10));
 
         messageField = new TextField();
@@ -111,7 +119,11 @@ public class XmppChatApp extends Application {
         deleteAccountButton.setOnAction(e -> deleteAccount(primaryStage));
         updatePresenceButton.setOnAction(e -> updatePresence());
 
-        VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, showDetailsButton,presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton);
+        createGroupButton = new Button("Create Group");
+        createGroupButton.setOnAction(e -> showCreateGroupDialog());
+
+        VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, createGroupButton,
+        showDetailsButton,presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton);
         leftPane.setPadding(new Insets(10));
 
         HBox bottomPane = new HBox(10, messageField, sendButton);
@@ -445,6 +457,73 @@ public class XmppChatApp extends Application {
             }
         } else {
             showAlert(Alert.AlertType.WARNING, "Warning", "Please select a contact first.");
+        }
+    }
+
+    private void showCreateGroupDialog() {
+        // Crear un diálogo para seleccionar los contactos para el grupo
+        Dialog<List<String>> dialog = new Dialog<>();
+        dialog.setTitle("Create Group");
+        dialog.setHeaderText("Enter group name and select contacts:");
+    
+        // Campo de texto para ingresar el nombre del grupo
+        TextField groupNameField = new TextField();
+        groupNameField.setPromptText("Group Name");
+    
+        // Lista de selección de contactos
+        ListView<String> contactSelectionList = new ListView<>(contactList.getItems());
+        contactSelectionList.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+    
+        // Layout para organizar el campo de texto y la lista de contactos
+        VBox dialogContent = new VBox(10, groupNameField, contactSelectionList);
+        dialogContent.setPadding(new Insets(10));
+        dialog.getDialogPane().setContent(dialogContent);
+    
+        // Añadir botones de acción al diálogo
+        ButtonType createButtonType = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(createButtonType, ButtonType.CANCEL);
+    
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == createButtonType && !groupNameField.getText().trim().isEmpty()) {
+                List<String> result = new ArrayList<>(contactSelectionList.getSelectionModel().getSelectedItems());
+                result.add(0, groupNameField.getText().trim()); // Añadir el nombre del grupo al inicio de la lista
+                return result;
+            }
+            return null;
+        });
+    
+        // Procesar el resultado cuando se presiona el botón "Create"
+        dialog.showAndWait().ifPresent(result -> {
+            if (result.size() > 1) {
+                String groupName = result.get(0);
+                List<String> selectedContacts = result.subList(1, result.size());
+                createGroup(groupName, selectedContacts);
+            }
+        });
+    }
+    
+    private void createGroup(String groupName, List<String> selectedContacts) {
+        try {
+            for (String contactJid : selectedContacts) {
+                EntityBareJid memberJid = JidCreate.entityBareFrom(contactJid);
+    
+                // Crear y enviar un mensaje de notificación
+                Message groupNotification = MessageBuilder.buildMessage()
+                        .to(memberJid)
+                        .setBody("You have been added to the group: " + groupName)
+                        .build();
+    
+                xmppClient.getConnection().sendStanza(groupNotification);
+            }
+    
+            // Añadir el nombre del grupo a la lista y actualizar la vista de grupos
+            groupList.add(groupName);
+            groupListView.getItems().setAll(groupList);
+    
+            showAlert(Alert.AlertType.INFORMATION, "Group Created", "Group '" + groupName + "' created successfully.");
+        } catch (XmppStringprepException | SmackException.NotConnectedException | InterruptedException e) {
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to create group.");
         }
     }
 }
