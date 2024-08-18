@@ -12,11 +12,15 @@ import org.jivesoftware.smack.packet.PresenceBuilder;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
 import org.jivesoftware.smack.roster.RosterListener;
-import org.jivesoftware.smack.roster.SubscribeListener;
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.stringprep.XmppStringprepException;
+
+import org.jivesoftware.smack.StanzaListener;
+import org.jivesoftware.smack.packet.Message;
+import org.jivesoftware.smack.packet.Stanza;
+import org.jxmpp.jid.EntityBareJid;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -25,7 +29,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -135,26 +138,39 @@ public class XmppChatApp extends Application {
     private void connectToXmpp() {
         try {
             xmppClient.connect(username, password);
-                
-            // Agregar listener para mensajes entrantes
-            xmppClient.addIncomingMessageListener((from, message, chat) -> {
-                Platform.runLater(() -> {
-                    String sender = from.asEntityBareJidString();
-                    String notification = "Nuevo mensaje de " + sender;
 
-                    notificationList.getItems().add(notification);
+            // Agregar listener para manejar las Stanzas de mensajes entrantes
+            xmppClient.getConnection().addAsyncStanzaListener(new StanzaListener() {
+                @Override
+                public void processStanza(Stanza stanza) {
+                    if (stanza instanceof Message) {
+                        Message message = (Message) stanza;
+                        EntityBareJid from = (EntityBareJid) message.getFrom().asEntityBareJidIfPossible();
 
-                    // Guardar la conversación en el historial
-                    StringBuilder conversation = conversations.getOrDefault(sender, new StringBuilder());
-                    conversation.append(sender).append(": ").append(message.getBody()).append("\n");
-                    conversations.put(sender, conversation);
+                        if (from != null && message.getBody() != null) {
+                            Platform.runLater(() -> {
+                                String sender = from.asEntityBareJidString();
+                                String notification = "Nuevo mensaje de " + sender;
 
-                    // Mostrar el mensaje en el área de chat si el contacto está seleccionado
-                    if (sender.equals(contactList.getSelectionModel().getSelectedItem())) {
-                        chatArea.appendText(sender + ": " + message.getBody() + "\n");
+                                // Agregar la notificación al notificationList
+                                notificationList.getItems().add(notification);
+
+                                // Guardar la conversación en el historial
+                                StringBuilder conversation = conversations.getOrDefault(sender, new StringBuilder());
+                                conversation.append(sender).append(": ").append(message.getBody()).append("\n");
+                                conversations.put(sender, conversation);
+
+                                // Mostrar el mensaje en el área de chat si el contacto está seleccionado
+                                String selectedContact = contactList.getSelectionModel().getSelectedItem();
+                                if (selectedContact != null && selectedContact.equals(sender)) {
+                                    chatArea.appendText(sender + ": " + message.getBody() + "\n");
+                                }
+                            });
+                        }
                     }
-                });
-            });
+                }
+            }, stanza -> stanza instanceof Message);
+
             // Agregar listener para solicitudes de suscripción entrantes
             xmppClient.getConnection().addAsyncStanzaListener(stanza -> {
                 Presence presence = (Presence) stanza;

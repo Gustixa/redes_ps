@@ -64,7 +64,7 @@ public class RegisterWindow extends Application {
 
             try {
                 // Intentar registrar una nueva cuenta en el servidor XMPP
-                xmppClient.connect("arg211024", "211024");  // Conectar sin credenciales para acceder al AccountManager
+                xmppClient.connect("arg211024-uvg", "211024");  // Conectar sin credenciales para acceder al AccountManager
                 xmppClient.registerAccount(username, password);
                  // Desconectar correctamente
                 // xmppClient.disconnect();
