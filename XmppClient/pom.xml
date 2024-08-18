@@ -45,6 +45,7 @@
       <version>4.4.4</version>
     </dependency>
 
+    <!--  -->
     <dependency>
       <groupId>org.jxmpp</groupId>
       <artifactId>jxmpp-core</artifactId>

@@ -1,9 +1,8 @@
 com/example/App.class
+com/example/XmppChatApp$2.class
 com/example/LoginWindow.class
-com/example/IMessageListener.class
 com/example/XmppClient$1.class
 com/example/RegisterWindow.class
 com/example/XmppClient.class
 com/example/XmppChatApp.class
 com/example/XmppChatApp$1.class
-com/example/MamQueryIQ.class

@@ -6,18 +6,21 @@ import java.util.List;
 import java.util.Map;
 
 import org.jivesoftware.smack.SmackException;
+import org.jivesoftware.smack.StanzaCollector;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.PresenceBuilder;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
 import org.jivesoftware.smack.roster.RosterListener;
+import org.jivesoftware.smackx.forward.packet.Forwarded;
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.stringprep.XmppStringprepException;
 
 import org.jivesoftware.smack.StanzaListener;
+import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Stanza;
 import org.jxmpp.jid.EntityBareJid;
@@ -212,6 +215,29 @@ public class XmppChatApp extends Application {
             }, stanza -> stanza instanceof Presence && ((Presence) stanza).getType() == Presence.Type.subscribe);
 
 
+            contactList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
+                if (newValue != null) {
+                    updateChatArea(newValue);
+                    
+                    try {
+                        EntityBareJid contactJid = JidCreate.entityBareFrom(newValue);
+                        fetchConversationHistory(contactJid); // Llama a fetchConversationHistory cuando se selecciona un contacto
+                    } catch (XmppStringprepException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+
+            xmppClient.getConnection().addAsyncStanzaListener(stanza -> {
+                if (stanza instanceof IQ) {
+                    IQ iq = (IQ) stanza;
+                    if (iq.getType() == IQ.Type.error) {
+                        System.out.println("Error received: " + iq.getError().toString());
+                    }
+                }
+            }, stanza -> stanza instanceof IQ);
+
+            
             Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
             roster.addRosterListener(new RosterListener() {
                 @Override
@@ -241,6 +267,43 @@ public class XmppChatApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Connection Failed", "Failed to connect to the XMPP server.");
         }
     }
+
+    private void fetchConversationHistory(EntityBareJid contactJid) {
+        try {
+            MamQueryIQ mamQuery = new MamQueryIQ(contactJid);
+            StanzaCollector stanzaCollector = xmppClient.getConnection().createStanzaCollectorAndSend(mamQuery);
+    
+            while (true) {
+                Stanza stanza = stanzaCollector.nextResultOrThrow();
+                if (stanza == null) {
+                    break; // No hay más resultados
+                }
+    
+                if (stanza instanceof Message) {
+                    Message message = (Message) stanza;
+                    if (message.getBody() != null) {
+                        String sender = message.getFrom().asEntityBareJidIfPossible().toString();
+                        String body = message.getBody();
+    
+                        Platform.runLater(() -> {
+                            StringBuilder conversation = conversations.getOrDefault(sender, new StringBuilder());
+                            conversation.append(sender).append(": ").append(body).append("\n");
+                            conversations.put(sender, conversation);
+    
+                            if (contactList.getSelectionModel().getSelectedItem().equals(sender)) {
+                                chatArea.appendText(sender + ": " + body + "\n");
+                            }
+                        });
+                    }
+                }
+            }
+    
+            stanzaCollector.cancel();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to fetch conversation history.");
+        }
+    }  
 
     private void updateContactList() {
         try {
