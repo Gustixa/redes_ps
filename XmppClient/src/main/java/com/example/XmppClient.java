@@ -7,7 +7,6 @@ import org.jivesoftware.smack.chat2.Chat;
 import org.jivesoftware.smack.chat2.IncomingChatMessageListener;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
-import org.jivesoftware.smack.roster.RosterListener;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 import org.jivesoftware.smack.packet.Message;
@@ -21,7 +20,6 @@ import org.jivesoftware.smackx.muc.MultiUserChatManager;
 import org.jivesoftware.smackx.receipts.DeliveryReceiptManager;
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.EntityBareJid;
-import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.jid.parts.Localpart;
 import org.jxmpp.jid.parts.Resourcepart;
@@ -36,18 +34,19 @@ import org.jivesoftware.smack.packet.Presence.Type;
 
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.io.File;
 import java.io.IOException;
 
 import java.util.HashMap;
 import java.util.Map;
 
+
 public class XmppClient {
 
     private XMPPTCPConnection connection;
     private final Map<String, List<String>> messageHistory = new HashMap<>(); // Mapa para guardar el historial de mensajes
 
+ 
     public void connect(String username, String password) throws XmppStringprepException, XMPPException, SmackException, IOException, InterruptedException {
         XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
                 .setXmppDomain("alumchat.lol")
@@ -76,22 +75,25 @@ public class XmppClient {
         return connection;
     }
 
+ 
     public void registerAccount(String username, String password) throws XmppStringprepException, SmackException, IOException, InterruptedException, XMPPException {
         AccountManager accountManager = AccountManager.getInstance(connection);
         if (accountManager.supportsAccountCreation()) {
             accountManager.sensitiveOperationOverInsecureConnection(true);
             accountManager.createAccount(Localpart.from(username), password);
-            System.out.println("Account registered: " + username);
+            System.out.println("Cuenta registrada: " + username);
         } else {
-            System.out.println("Account creation not supported.");
+            System.out.println("Creación de cuenta no soportada.");
         }
     }
 
+ 
     public void deleteAccount() throws SmackException.NotLoggedInException, SmackException.NoResponseException, XMPPException.XMPPErrorException, SmackException.NotConnectedException, InterruptedException {
         AccountManager accountManager = AccountManager.getInstance(connection);
         accountManager.deleteAccount();
         System.out.println("Account deleted.");
     }
+
 
     public void sendMessage(String toJid, String message) throws XmppStringprepException, SmackException, InterruptedException, NotConnectedException, IOException {
         ChatManager chatManager = ChatManager.getInstanceFor(connection);
@@ -100,12 +102,13 @@ public class XmppClient {
         System.out.println("Message sent to " + toJid + ": " + message);
     }
 
+
     public void addIncomingMessageListener(IncomingChatMessageListener listener) {
         ChatManager chatManager = ChatManager.getInstanceFor(connection);
         chatManager.addIncomingListener(listener);
     }
 
-    // Método para obtener la lista de contactos
+  
     public List<String> getContactList() throws Exception {
         List<String> contacts = new ArrayList<>();
         Roster roster = Roster.getInstanceFor(connection);
@@ -115,10 +118,10 @@ public class XmppClient {
         return contacts;
     }
 
-    // Método para establecer el mensaje de presencia utilizando PresenceBuilder
+ 
     public void setPresence(String statusMessage, Mode mode) throws SmackException.NotConnectedException, InterruptedException {
         Presence presence = PresenceBuilder.buildPresence()
-                .ofType(Type.available)    // Puedes ajustar el tipo de presencia aquí
+                .ofType(Type.available)    // Ajustar el tipo de presencia
                 .setMode(mode)             // Establece el modo de presencia (available, away, etc.)
                 .setStatus(statusMessage)  // Establece el mensaje de estado
                 .build();
@@ -126,17 +129,19 @@ public class XmppClient {
         connection.sendStanza(presence);
     }
 
-    // Método para desconectar del servidor XMPP
+
     public void disconnect() throws SmackException.NotConnectedException {
         if (connection != null && connection.isConnected()) {
             connection.disconnect();
         }
     }
 
+   
     public boolean isConnected() {
         return connection != null && connection.isConnected();
     }
 
+ 
     public void addContact(String jid, String name) throws XmppStringprepException, SmackException.NotLoggedInException, SmackException.NoResponseException, XMPPException.XMPPErrorException, SmackException.NotConnectedException, InterruptedException {
         Roster roster = Roster.getInstanceFor(connection);
         BareJid bareJid = JidCreate.bareFrom(jid);
@@ -156,6 +161,7 @@ public class XmppClient {
         }
     }
 
+
     public void showContacts() throws SmackException.NotLoggedInException, SmackException.NotConnectedException, InterruptedException {
         Roster roster = Roster.getInstanceFor(connection);
         for (RosterEntry entry : roster.getEntries()) {
@@ -164,6 +170,7 @@ public class XmppClient {
         }
     }
 
+    
     public void showContactDetails(String jid) throws XmppStringprepException, SmackException.NotLoggedInException, SmackException.NotConnectedException, InterruptedException {
         Roster roster = Roster.getInstanceFor(connection);
         BareJid bareJid = JidCreate.bareFrom(jid);
@@ -207,31 +214,6 @@ public class XmppClient {
         System.out.println("File sent to " + toJid);
     }
 
-    public void addPresenceListener() {
-        Roster roster = Roster.getInstanceFor(connection);
-        roster.addRosterListener(new RosterListener() {
-            @Override
-            public void entriesAdded(Collection<Jid> addresses) {
-                // Manejar entradas añadidas
-            }
-
-            @Override
-            public void entriesUpdated(Collection<Jid> addresses) {
-                // Manejar entradas actualizadas
-            }
-
-            @Override
-            public void entriesDeleted(Collection<Jid> addresses) {
-                // Manejar entradas eliminadas
-            }
-
-            @Override
-            public void presenceChanged(Presence presence) {
-                // Manejar cambios de presencia
-                System.out.println("Presence changed: " + presence.getFrom() + " " + presence);
-            }
-        });
-    }
 
     private void handleSubscriptionRequest(BareJid from) {
         // Aquí podrías mostrar un cuadro de diálogo en la interfaz de usuario para que el usuario acepte o rechace la solicitud
@@ -277,5 +259,5 @@ public class XmppClient {
                 .build();
         connection.sendStanza(unsubscribed);
         System.out.println("Subscription rejected from: " + from);
-    }       
+    }    
 }
