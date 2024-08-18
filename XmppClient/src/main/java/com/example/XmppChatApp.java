@@ -21,6 +21,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -44,6 +45,8 @@ public class XmppChatApp extends Application {
     private Button showDetailsButton;
 
     private Map<String, StringBuilder> conversations = new HashMap<>();
+    private ListView<String> notificationList;
+
 
     public void setCredentials(String username, String password) {
         this.username = username;
@@ -56,7 +59,25 @@ public class XmppChatApp extends Application {
         chatArea = new TextArea();
         chatArea.setEditable(false);
 
+        notificationList = new ListView<>();
+        notificationList.setPrefHeight(200); // Aumenta la altura preferida para el cuadro de notificaciones
+        notificationList.setPrefWidth(250);
+
+
+        notificationList.setOnMouseClicked(event -> {
+            String selectedNotification = notificationList.getSelectionModel().getSelectedItem();
+            if (selectedNotification != null) {
+                String senderJid = selectedNotification.split(" ")[3]; // Extrae el JID del mensaje
+                contactList.getSelectionModel().select(senderJid); // Selecciona el contacto
+                updateChatArea(senderJid); // Actualiza el área de chat con la conversación del contacto
+            }
+        });
+
+        VBox rightPane = new VBox(10, notificationList);
+        rightPane.setPadding(new Insets(10));
+
         messageField = new TextField();
+        messageField.setPrefWidth(400);
         sendButton = new Button("Send");
 
         newUserField = new TextField();
@@ -85,13 +106,14 @@ public class XmppChatApp extends Application {
 
         HBox bottomPane = new HBox(10, messageField, sendButton);
         bottomPane.setPadding(new Insets(10));
-
+        
         BorderPane root = new BorderPane();
         root.setLeft(leftPane);
         root.setCenter(chatArea);
         root.setBottom(bottomPane);
+        root.setRight(rightPane);
 
-        Scene scene = new Scene(root, 800, 600);
+        Scene scene = new Scene(root, 2000, 1600);
 
         primaryStage.setTitle("XmppClient");
         primaryStage.setScene(scene);
@@ -112,15 +134,22 @@ public class XmppChatApp extends Application {
             xmppClient.addIncomingMessageListener((from, message, chat) -> {
                 Platform.runLater(() -> {
                     String sender = from.asEntityBareJidString();
+                    String notification = "Nuevo mensaje de " + sender;
+            
+                    notificationList.getItems().add(notification);
+            
+                    // Guardar la conversación en el historial
                     StringBuilder conversation = conversations.getOrDefault(sender, new StringBuilder());
                     conversation.append(sender).append(": ").append(message.getBody()).append("\n");
                     conversations.put(sender, conversation);
-
+            
+                    // Mostrar el mensaje en el área de chat si el contacto está seleccionado
                     if (sender.equals(contactList.getSelectionModel().getSelectedItem())) {
                         chatArea.appendText(sender + ": " + message.getBody() + "\n");
                     }
                 });
             });
+            
 
             Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
             roster.addRosterListener(new RosterListener() {

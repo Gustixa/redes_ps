@@ -213,51 +213,5 @@ public class XmppClient {
         transfer.sendFile(file, "Sending file");
         System.out.println("File sent to " + toJid);
     }
-
-
-    private void handleSubscriptionRequest(BareJid from) {
-        // Aquí podrías mostrar un cuadro de diálogo en la interfaz de usuario para que el usuario acepte o rechace la solicitud
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Subscription Request");
-        alert.setHeaderText("New subscription request from: " + from);
-        alert.setContentText("Do you want to accept this subscription request?");
-
-        ButtonType buttonYes = new ButtonType("Yes");
-        ButtonType buttonNo = new ButtonType("No", ButtonBar.ButtonData.CANCEL_CLOSE);
-
-        alert.getButtonTypes().setAll(buttonYes, buttonNo);
-
-        alert.showAndWait().ifPresent(type -> {
-            if (type == buttonYes) {
-                try {
-                    acceptSubscription(from);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else if (type == buttonNo) {
-                try {
-                    rejectSubscription(from);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
-
-    private void acceptSubscription(BareJid from) throws SmackException.NotConnectedException, InterruptedException {
-        Presence subscribed = PresenceBuilder.buildPresence()
-                .ofType(Presence.Type.subscribed)
-                .build();
-        connection.sendStanza(subscribed);
-        System.out.println("Subscription accepted from: " + from);
-    }
-    
-
-    private void rejectSubscription(BareJid from) throws SmackException.NotConnectedException, InterruptedException {
-        Presence unsubscribed = PresenceBuilder.buildPresence()
-                .ofType(Presence.Type.unsubscribed)
-                .build();
-        connection.sendStanza(unsubscribed);
-        System.out.println("Subscription rejected from: " + from);
-    }    
+  
 }
