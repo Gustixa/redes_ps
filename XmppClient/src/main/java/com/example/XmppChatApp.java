@@ -5,7 +5,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.jivesoftware.smack.SmackException;
+import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Presence;
+import org.jivesoftware.smack.packet.PresenceBuilder;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
 import org.jivesoftware.smack.roster.RosterListener;
@@ -13,6 +16,7 @@ import org.jivesoftware.smack.roster.SubscribeListener;
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
+import org.jxmpp.stringprep.XmppStringprepException;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -106,7 +110,7 @@ public class XmppChatApp extends Application {
 
         HBox bottomPane = new HBox(10, messageField, sendButton);
         bottomPane.setPadding(new Insets(10));
-        
+
         BorderPane root = new BorderPane();
         root.setLeft(leftPane);
         root.setCenter(chatArea);
@@ -131,25 +135,66 @@ public class XmppChatApp extends Application {
     private void connectToXmpp() {
         try {
             xmppClient.connect(username, password);
+                
+            // Agregar listener para mensajes entrantes
             xmppClient.addIncomingMessageListener((from, message, chat) -> {
                 Platform.runLater(() -> {
                     String sender = from.asEntityBareJidString();
                     String notification = "Nuevo mensaje de " + sender;
-            
+
                     notificationList.getItems().add(notification);
-            
+
                     // Guardar la conversación en el historial
                     StringBuilder conversation = conversations.getOrDefault(sender, new StringBuilder());
                     conversation.append(sender).append(": ").append(message.getBody()).append("\n");
                     conversations.put(sender, conversation);
-            
+
                     // Mostrar el mensaje en el área de chat si el contacto está seleccionado
                     if (sender.equals(contactList.getSelectionModel().getSelectedItem())) {
                         chatArea.appendText(sender + ": " + message.getBody() + "\n");
                     }
                 });
             });
-            
+            // Agregar listener para solicitudes de suscripción entrantes
+            xmppClient.getConnection().addAsyncStanzaListener(stanza -> {
+                Presence presence = (Presence) stanza;
+                if (presence.getType() == Presence.Type.subscribe) {
+                    Platform.runLater(() -> {
+                        // Mostrar una alerta para aceptar o rechazar la solicitud
+                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, 
+                            "El usuario " + presence.getFrom().asBareJid() + " quiere agregarte como contacto. ¿Aceptar?", 
+                            ButtonType.YES, ButtonType.NO);
+                        alert.showAndWait();
+
+                        try {
+                            if (alert.getResult() == ButtonType.YES) {
+                                // Aceptar la solicitud
+                                Presence subscribedPresence = PresenceBuilder.buildPresence()
+                                        .ofType(Presence.Type.subscribed)
+                                        .to(presence.getFrom())
+                                        .build();
+                                xmppClient.getConnection().sendStanza(subscribedPresence);
+
+                                // También puedes agregar el contacto automáticamente si lo deseas
+                                xmppClient.addContact(presence.getFrom().asBareJid().toString(), presence.getFrom().asBareJid().toString());
+                                updateContactList();
+                            } else {
+                                // Rechazar la solicitud
+                                Presence unsubscribedPresence = PresenceBuilder.buildPresence()
+                                        .ofType(Presence.Type.unsubscribed)
+                                        .to(presence.getFrom())
+                                        .build();
+                                xmppClient.getConnection().sendStanza(unsubscribedPresence);
+                            }
+                        } catch (SmackException.NotConnectedException | InterruptedException | XmppStringprepException |
+                                SmackException.NotLoggedInException | SmackException.NoResponseException |
+                                XMPPException.XMPPErrorException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                }
+            }, stanza -> stanza instanceof Presence && ((Presence) stanza).getType() == Presence.Type.subscribe);
+
 
             Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
             roster.addRosterListener(new RosterListener() {

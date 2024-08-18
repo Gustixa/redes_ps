@@ -31,6 +31,12 @@ import javafx.scene.control.ButtonType;
 import org.jivesoftware.smack.packet.Presence.Mode;
 import org.jivesoftware.smack.packet.Presence.Type;
 
+import org.jivesoftware.smack.packet.IQ;
+import org.jivesoftware.smack.roster.SubscribeListener;
+import org.jivesoftware.smack.roster.Roster;
+import org.jxmpp.jid.Jid;
+
+import javafx.application.Platform;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -214,4 +220,65 @@ public class XmppClient {
         System.out.println("File sent to " + toJid);
     }
   
+    // public void setupSubscriptionListener() {
+    //     Roster roster = Roster.getInstanceFor(connection);
+    //     roster.setSubscribeListener(new SubscribeListener() {
+    //         @Override
+    //         public SubscribeAnswer processSubscribe(Jid from, Presence subscribeRequest) {
+    //             Platform.runLater(() -> showSubscriptionRequest(from));
+    //             return SubscribeAnswer.StayInactive; // This keeps the subscription pending until the user decides.
+    //         }
+    //     });
+    // }
+
+    // private void showSubscriptionRequest(Jid from) {
+    //     Platform.runLater(() -> {
+    //         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+    //         alert.setTitle("Subscription Request");
+    //         alert.setHeaderText("New subscription request from " + from);
+    //         alert.setContentText("Do you want to accept the subscription request from " + from + "?");
+
+    //         ButtonType acceptButton = new ButtonType("Accept", ButtonBar.ButtonData.OK_DONE);
+    //         ButtonType rejectButton = new ButtonType("Reject", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+    //         alert.getButtonTypes().setAll(acceptButton, rejectButton);
+
+    //         alert.showAndWait().ifPresent(response -> {
+    //             try {
+    //                 if (response == acceptButton) {
+    //                     acceptSubscription(from);
+    //                 } else {
+    //                     rejectSubscription(from);
+    //                 }
+    //             } catch (Exception e) {
+    //                 e.printStackTrace();
+    //                 showAlert(Alert.AlertType.ERROR, "Error", "Failed to process subscription request.");
+    //             }
+    //         });
+    //     });
+    // }
+
+    // private void acceptSubscription(Jid from) throws XmppStringprepException, SmackException.NotLoggedInException, SmackException.NoResponseException, XMPPException.XMPPErrorException, SmackException.NotConnectedException, InterruptedException {
+    //     Roster roster = Roster.getInstanceFor(connection);
+    //     BareJid bareJid = from.asBareJid();
+    //     roster.createEntry(bareJid, bareJid.toString(), null);
+
+    //     Presence presence = PresenceBuilder.buildPresence()
+    //             .ofType(Presence.Type.subscribed)
+    //             .to(bareJid)
+    //             .build();
+
+    //     connection.sendStanza(presence);
+    //     System.out.println("Subscription accepted for: " + from);
+    // }
+
+    // private void rejectSubscription(Jid from) throws SmackException.NotLoggedInException, SmackException.NotConnectedException, InterruptedException {
+    //     Presence presence = PresenceBuilder.buildPresence()
+    //             .ofType(Presence.Type.unsubscribed)
+    //             .to(from)
+    //             .build();
+
+    //     connection.sendStanza(presence);
+    //     System.out.println("Subscription rejected for: " + from);
+    // }
 }
