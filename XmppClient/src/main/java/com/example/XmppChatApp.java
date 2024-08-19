@@ -43,7 +43,7 @@ public class XmppChatApp extends Application {
     private String username;
     private String password;
 
-    private ListView<String> contactList;
+    private ListView<Contact> contactList;
     private TextArea chatArea;
     private TextField messageField;
     private Button sendButton;
@@ -82,8 +82,11 @@ public class XmppChatApp extends Application {
             String selectedNotification = notificationList.getSelectionModel().getSelectedItem();
             if (selectedNotification != null) {
                 String senderJid = selectedNotification.split(" ")[3]; // Extrae el JID del mensaje
-                contactList.getSelectionModel().select(senderJid); // Selecciona el contacto
-                updateChatArea(senderJid); // Actualiza el área de chat con la conversación del contacto
+                Contact contact = findContactByJid(senderJid);
+                if (contact != null) {
+                    contactList.getSelectionModel().select(contact); // Selecciona el contacto
+                    updateChatArea(contact.getJid()); // Actualiza el área de chat con la conversación del contacto
+                }
             }
         });
 
@@ -143,7 +146,7 @@ public class XmppChatApp extends Application {
 
         contactList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null) {
-                updateChatArea(newValue);
+                updateChatArea(newValue.getJid());
             }
         });
 
@@ -176,8 +179,8 @@ public class XmppChatApp extends Application {
                                 conversations.put(sender, conversation);
 
                                 // Mostrar el mensaje en el área de chat si el contacto está seleccionado
-                                String selectedContact = contactList.getSelectionModel().getSelectedItem();
-                                if (selectedContact != null && selectedContact.equals(sender)) {
+                                Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
+                                if (selectedContact != null && selectedContact.getJid().equals(sender)) {
                                     chatArea.appendText(sender + ": " + message.getBody() + "\n");
                                 }
                             });
@@ -229,7 +232,7 @@ public class XmppChatApp extends Application {
 
             contactList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue != null) {
-                    updateChatArea(newValue);
+                    updateChatArea(newValue.getJid());
                     
                     // try {
                     //     EntityBareJid contactJid = JidCreate.entityBareFrom(newValue);
@@ -317,12 +320,43 @@ public class XmppChatApp extends Application {
         }
     }  
 
+    // private void updateContactList() {
+    //     try {
+    //         contactList.getItems().clear();
+    //         List<String> contacts = xmppClient.getContactList();
+    //         if (contacts != null) {
+    //             contactList.getItems().addAll(contacts);
+    //         }
+    //     } catch (Exception e) {
+    //         e.printStackTrace();
+    //         showAlert(Alert.AlertType.ERROR, "Error", "Failed to retrieve contact list.");
+    //     }
+    // }
+
+    private Contact findContactByJid(String jid) {
+        for (Contact contact : contactList.getItems()) {
+            if (contact.getJid().equals(jid)) {
+                return contact;
+            }
+        }
+        return null;
+    }
+    
     private void updateContactList() {
         try {
             contactList.getItems().clear();
             List<String> contacts = xmppClient.getContactList();
             if (contacts != null) {
-                contactList.getItems().addAll(contacts);
+                for (String contactJid : contacts) {
+                    Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
+                    Presence presence = roster.getPresence(JidCreate.bareFrom(contactJid));
+                    String status = presence.isAvailable() ? presence.getMode().toString() : "Offline";
+                    
+                    // Crear un objeto Contact
+                    Contact contact = new Contact(contactJid, contactJid, status);
+                    
+                    contactList.getItems().add(contact);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -330,24 +364,6 @@ public class XmppChatApp extends Application {
         }
     }
     
-    // private void updateContactList() {
-    //     try {
-    //         contactList.getItems().clear();
-    //         List<String> contacts = xmppClient.getContactList();
-    //         if (contacts != null) {
-    //             for (String contactJid : contacts) {
-    //                 Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
-    //                 Presence presence = roster.getPresence(JidCreate.bareFrom(contactJid));
-    //                 String status = presence.isAvailable() ? presence.getMode().toString() : "Offline";
-    //                 String displayText = contactJid + " (" + status + ")";
-    //                 contactList.getItems().add(displayText);
-    //             }
-    //         }
-    //     } catch (Exception e) {
-    //         e.printStackTrace();
-    //         showAlert(Alert.AlertType.ERROR, "Error", "Failed to retrieve contact list.");
-    //     }
-    // }
 
     private void updateChatArea(String userJid) {
         chatArea.clear();
@@ -358,26 +374,26 @@ public class XmppChatApp extends Application {
     }
 
     private void sendMessage() {
-        String selectedUser = contactList.getSelectionModel().getSelectedItem();
         String message = messageField.getText();
-
-        if (selectedUser != null && !message.isEmpty()) {
-            try {
-                xmppClient.sendMessage(selectedUser, message);
-                StringBuilder conversation = conversations.getOrDefault(selectedUser, new StringBuilder());
-                conversation.append("Me: ").append(message).append("\n");
-                conversations.put(selectedUser, conversation);
-
-                chatArea.appendText("Me: " + message + "\n");
-                messageField.clear();
-            } catch (Exception e) {
-                e.printStackTrace();
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to send message.");
-            }
-        } else {
-            showAlert(Alert.AlertType.WARNING, "Warning", "Please select a user and enter a message.");
+        Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
+        if (message.isEmpty() || selectedContact == null) {
+            showAlert(Alert.AlertType.WARNING, "Warning", "Please select a contact and enter a message.");
+            return;
+        }
+    
+        String contactJid = selectedContact.getJid(); // Obtén solo el JID
+    
+        try {
+            xmppClient.sendMessage(contactJid, message); // Envía el mensaje usando solo el JID
+            chatArea.appendText("Me: " + message + "\n");
+            messageField.clear();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to send message.");
         }
     }
+    
+    
 
     private void addUser() {
         String newUserJid = newUserField.getText();
@@ -447,25 +463,22 @@ public class XmppChatApp extends Application {
     }
 
     private void showContactDetails() {
-        String selectedUser = contactList.getSelectionModel().getSelectedItem();
+        Contact selectedUser = contactList.getSelectionModel().getSelectedItem();
         if (selectedUser != null) {
             try {
-                // Extraer el JID del contacto de la cadena seleccionada en la lista
-                String contactJidStr = selectedUser.split(" ")[0];
-                BareJid contactJid = JidCreate.bareFrom(contactJidStr); // Convertir el String a BareJid
-
+                BareJid contactJid = JidCreate.bareFrom(selectedUser.getJid());
                 Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
                 RosterEntry entry = roster.getEntry(contactJid);
-
+    
                 if (entry != null) {
                     Presence presence = roster.getPresence(contactJid);
                     String presenceStatus = presence.isAvailable() ? presence.getMode().toString() : "Offline";
                     String presenceMessage = presence.getStatus();
-
+    
                     String details = "JID: " + contactJid +
                                     "\nStatus: " + presenceStatus +
                                     "\nMessage: " + (presenceMessage != null ? presenceMessage : "No status message");
-
+    
                     showAlert(Alert.AlertType.INFORMATION, "Contact Details", details);
                 } else {
                     showAlert(Alert.AlertType.WARNING, "Warning", "Contact not found in the roster.");
@@ -478,10 +491,11 @@ public class XmppChatApp extends Application {
             showAlert(Alert.AlertType.WARNING, "Warning", "Please select a contact first.");
         }
     }
+    
 
     private void showCreateGroupDialog() {
         // Crear un diálogo para seleccionar los contactos para el grupo
-        Dialog<List<String>> dialog = new Dialog<>();
+        Dialog<List<Object>> dialog = new Dialog<>();
         dialog.setTitle("Create Group");
         dialog.setHeaderText("Enter group name and select contacts:");
     
@@ -490,7 +504,7 @@ public class XmppChatApp extends Application {
         groupNameField.setPromptText("Group Name");
     
         // Lista de selección de contactos
-        ListView<String> contactSelectionList = new ListView<>(contactList.getItems());
+        ListView<Contact> contactSelectionList = new ListView<>(contactList.getItems());
         contactSelectionList.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
     
         // Layout para organizar el campo de texto y la lista de contactos
@@ -504,8 +518,9 @@ public class XmppChatApp extends Application {
     
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == createButtonType && !groupNameField.getText().trim().isEmpty()) {
-                List<String> result = new ArrayList<>(contactSelectionList.getSelectionModel().getSelectedItems());
-                result.add(0, groupNameField.getText().trim()); // Añadir el nombre del grupo al inicio de la lista
+                List<Object> result = new ArrayList<>();
+                result.add(groupNameField.getText().trim()); // Añadir el nombre del grupo al inicio de la lista
+                result.addAll(contactSelectionList.getSelectionModel().getSelectedItems());
                 return result;
             }
             return null;
@@ -514,12 +529,23 @@ public class XmppChatApp extends Application {
         // Procesar el resultado cuando se presiona el botón "Create"
         dialog.showAndWait().ifPresent(result -> {
             if (result.size() > 1) {
-                String groupName = result.get(0);
-                List<String> selectedContacts = result.subList(1, result.size());
-                createGroup(groupName, selectedContacts);
+                String groupName = (String) result.get(0);
+                List<Contact> selectedContacts = new ArrayList<>();
+                for (int i = 1; i < result.size(); i++) {
+                    Object item = result.get(i);
+                    if (item instanceof Contact) {
+                        selectedContacts.add((Contact) item);
+                    }
+                }
+                List<String> selectedContactJids = new ArrayList<>();
+                for (Contact contact : selectedContacts) {
+                    selectedContactJids.add(contact.getJid());
+                }
+                createGroup(groupName, selectedContactJids);
             }
         });
     }
+    
     
     private void createGroup(String groupName, List<String> selectedContacts) {
         try {
