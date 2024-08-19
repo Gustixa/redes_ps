@@ -231,12 +231,12 @@ public class XmppChatApp extends Application {
                 if (newValue != null) {
                     updateChatArea(newValue);
                     
-                    try {
-                        EntityBareJid contactJid = JidCreate.entityBareFrom(newValue);
-                        fetchConversationHistory(contactJid); // Llama a fetchConversationHistory cuando se selecciona un contacto
-                    } catch (XmppStringprepException e) {
-                        e.printStackTrace();
-                    }
+                    // try {
+                    //     EntityBareJid contactJid = JidCreate.entityBareFrom(newValue);
+                    //     fetchConversationHistory(contactJid); // Llama a fetchConversationHistory cuando se selecciona un contacto
+                    // } catch (XmppStringprepException e) {
+                    //     e.printStackTrace();
+                    // }
                 }
             });
 
@@ -329,6 +329,25 @@ public class XmppChatApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Error", "Failed to retrieve contact list.");
         }
     }
+    
+    // private void updateContactList() {
+    //     try {
+    //         contactList.getItems().clear();
+    //         List<String> contacts = xmppClient.getContactList();
+    //         if (contacts != null) {
+    //             for (String contactJid : contacts) {
+    //                 Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
+    //                 Presence presence = roster.getPresence(JidCreate.bareFrom(contactJid));
+    //                 String status = presence.isAvailable() ? presence.getMode().toString() : "Offline";
+    //                 String displayText = contactJid + " (" + status + ")";
+    //                 contactList.getItems().add(displayText);
+    //             }
+    //         }
+    //     } catch (Exception e) {
+    //         e.printStackTrace();
+    //         showAlert(Alert.AlertType.ERROR, "Error", "Failed to retrieve contact list.");
+    //     }
+    // }
 
     private void updateChatArea(String userJid) {
         chatArea.clear();
