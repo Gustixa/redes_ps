@@ -23,6 +23,7 @@ import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Stanza;
 import org.jxmpp.jid.EntityBareJid;
+import org.jxmpp.jid.EntityFullJid;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -32,8 +33,22 @@ import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
+
+import org.jivesoftware.smackx.filetransfer.FileTransferManager;
+import org.jivesoftware.smackx.filetransfer.FileTransferRequest;
+import org.jivesoftware.smackx.filetransfer.IncomingFileTransfer;
+import org.jivesoftware.smackx.filetransfer.FileTransfer;
+import org.jivesoftware.smackx.filetransfer.FileTransferListener;
+
+import org.jivesoftware.smackx.filetransfer.OutgoingFileTransfer;
+import org.jivesoftware.smackx.filetransfer.FileTransfer.Status;
+
 
 import org.jivesoftware.smack.packet.MessageBuilder;
 
@@ -56,6 +71,7 @@ public class XmppChatApp extends Application {
     private Button updatePresenceButton;
     private Button showDetailsButton;
     private Button createGroupButton;
+    private Button sendFileButton;
 
     private Map<String, StringBuilder> conversations = new HashMap<>();
     private ListView<String> notificationList;
@@ -125,8 +141,19 @@ public class XmppChatApp extends Application {
         createGroupButton = new Button("Create Group");
         createGroupButton.setOnAction(e -> showCreateGroupDialog());
 
+        sendFileButton = new Button("Send File");
+
+        sendFileButton.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            File file = fileChooser.showOpenDialog(primaryStage);
+            if (file != null) {
+                sendFile(file.getAbsolutePath());
+            }
+        });
+
         VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, createGroupButton,
-        showDetailsButton,presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton);
+        showDetailsButton,presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton,
+        sendFileButton);
         leftPane.setPadding(new Insets(10));
 
         HBox bottomPane = new HBox(10, messageField, sendButton);
@@ -251,6 +278,29 @@ public class XmppChatApp extends Application {
                     }
                 }
             }, stanza -> stanza instanceof IQ);
+
+            FileTransferManager fileTransferManager = FileTransferManager.getInstanceFor(xmppClient.getConnection());
+            fileTransferManager.addFileTransferListener(new FileTransferListener() {
+                @Override
+                public void fileTransferRequest(FileTransferRequest request) {
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, 
+                            "Incoming file transfer request from " + request.getRequestor().asBareJid() + ". Accept?", 
+                            ButtonType.YES, ButtonType.NO);
+                        alert.showAndWait().ifPresent(response -> {
+                            if (response == ButtonType.YES) {
+                                try {
+                                    IncomingFileTransfer incomingFileTransfer = request.accept();
+                                    receiveFile(incomingFileTransfer);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                    showAlert(Alert.AlertType.ERROR, "Error", "Failed to accept file transfer.");
+                                }
+                            }
+                        });
+                    });
+                }
+            });
 
             
             Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
@@ -570,5 +620,59 @@ public class XmppChatApp extends Application {
             e.printStackTrace();
             showAlert(Alert.AlertType.ERROR, "Error", "Failed to create group.");
         }
+    }
+
+    private void sendFile(String filePath) {
+        Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
+        if (selectedContact == null || filePath == null || filePath.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "Warning", "Please select a contact and choose a file.");
+            return;
+        }
+
+        try {
+            EntityFullJid recipientJid = JidCreate.entityFullFrom(selectedContact.getJid());
+            OutgoingFileTransfer fileTransfer = FileTransferManager.getInstanceFor(xmppClient.getConnection())
+                .createOutgoingFileTransfer(recipientJid);
+
+            File file = new File(filePath);
+            fileTransfer.sendFile(file, "Sending file: " + file.getName());
+
+            // Mostrar progreso
+            new Thread(() -> {
+                try {
+                    while (!fileTransfer.isDone()) {
+                        if (fileTransfer.getStatus().equals(FileTransfer.Status.error)) {
+                            Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "File transfer failed."));
+                            return;
+                        }
+                        // Actualizar interfaz con el progreso
+                        Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "File Transfer", "Progress: " + fileTransfer.getProgress() * 100 + "%"));
+                        Thread.sleep(1000);
+                    }
+                    Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Success", "File transfer complete."));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to send file.");
+        }
+    }
+
+
+    private void receiveFile(IncomingFileTransfer fileTransfer) {
+        new Thread(() -> {
+            try {
+                // Asegúrate de que el archivo se cree correctamente en el directorio actual
+                File file = new File("received_" + fileTransfer.getFileName());
+                fileTransfer.receiveFile(file);  // Usa receiveFile, no recieveFile
+                Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Success", "File received: " + fileTransfer.getFileName()));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "Failed to receive file."));
+            }
+        }).start();
     }
 }
