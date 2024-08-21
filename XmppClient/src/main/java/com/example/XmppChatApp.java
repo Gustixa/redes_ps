@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.jivesoftware.smack.SmackException;
-import org.jivesoftware.smack.StanzaCollector;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.PresenceBuilder;
@@ -24,6 +23,18 @@ import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Stanza;
 import org.jxmpp.jid.EntityBareJid;
 import org.jxmpp.jid.EntityFullJid;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Path;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -36,8 +47,6 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 
 import org.jivesoftware.smackx.filetransfer.FileTransferManager;
@@ -184,39 +193,37 @@ public class XmppChatApp extends Application {
         try {
             xmppClient.connect(username, password);
 
-            // Agregar listener para manejar las Stanzas de mensajes entrantes
             xmppClient.getConnection().addAsyncStanzaListener(new StanzaListener() {
                 @Override
                 public void processStanza(Stanza stanza) {
                     if (stanza instanceof Message) {
                         Message message = (Message) stanza;
                         EntityBareJid from = (EntityBareJid) message.getFrom().asEntityBareJidIfPossible();
-
+            
                         if (from != null && message.getBody() != null) {
                             Platform.runLater(() -> {
                                 String sender = from.asEntityBareJidString();
+                                String messageBody = message.getBody();
+            
+                                // Evitar mensajes duplicados en el historial
+                                StringBuilder conversation = conversations.computeIfAbsent(sender, k -> new StringBuilder());
+                                String newMessage = sender + ": " + messageBody + "\n";
+                                if (!conversation.toString().contains(newMessage)) {
+                                    conversation.append(newMessage);
+                                    updateChatArea(sender);
+                                }
+            
+                                // Evitar notificaciones duplicadas
                                 String notification = "Nuevo mensaje de " + sender;
-
-                                // Agregar la notificación al notificationList
-                                notificationList.getItems().add(notification);
-
-                                // Guardar la conversación en el historial
-                                StringBuilder conversation = conversations.getOrDefault(sender, new StringBuilder());
-                                conversation.append(sender).append(": ").append(message.getBody()).append("\n");
-                                conversations.put(sender, conversation);
-
-                                // Mostrar el mensaje en el área de chat si el contacto está seleccionado
-                                Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
-                                if (selectedContact != null && selectedContact.getJid().equals(sender)) {
-                                    chatArea.appendText(sender + ": " + message.getBody() + "\n");
+                                if (!notificationList.getItems().contains(notification)) {
+                                    notificationList.getItems().add(notification);
                                 }
                             });
                         }
                     }
                 }
             }, stanza -> stanza instanceof Message);
-
-            // Agregar listener para solicitudes de suscripción entrantes
+                     // Agregar listener para solicitudes de suscripción entrantes
             xmppClient.getConnection().addAsyncStanzaListener(stanza -> {
                 Presence presence = (Presence) stanza;
                 if (presence.getType() == Presence.Type.subscribe) {
@@ -260,13 +267,6 @@ public class XmppChatApp extends Application {
             contactList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue != null) {
                     updateChatArea(newValue.getJid());
-                    
-                    // try {
-                    //     EntityBareJid contactJid = JidCreate.entityBareFrom(newValue);
-                    //     fetchConversationHistory(contactJid); // Llama a fetchConversationHistory cuando se selecciona un contacto
-                    // } catch (XmppStringprepException e) {
-                    //     e.printStackTrace();
-                    // }
                 }
             });
 
@@ -302,6 +302,29 @@ public class XmppChatApp extends Application {
                 }
             });
 
+            xmppClient.getConnection().addAsyncStanzaListener(new StanzaListener() {
+            @Override
+            public void processStanza(Stanza stanza) {
+                if (stanza instanceof Message) {
+                    Message message = (Message) stanza;
+                    EntityBareJid from = (EntityBareJid) message.getFrom().asEntityBareJidIfPossible();
+
+                    if (from != null && message.getBody() != null) {
+                        Platform.runLater(() -> {
+                            String sender = from.asEntityBareJidString();
+                            String receivedMessage = sender + ": " + message.getBody();
+                            
+                            notificationList.getItems().add("Nuevo mensaje de " + sender);
+                            chatArea.appendText(receivedMessage + "\n");
+
+                            // Almacenar la conversación en el HashMap
+                            conversations.computeIfAbsent(sender, k -> new StringBuilder()).append(receivedMessage).append("\n");
+                        });
+                    }
+                }
+            }
+        }, stanza -> stanza instanceof Message);
+
             
             Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
             roster.addRosterListener(new RosterListener() {
@@ -333,56 +356,6 @@ public class XmppChatApp extends Application {
         }
     }
 
-    private void fetchConversationHistory(EntityBareJid contactJid) {
-        try {
-            MamQueryIQ mamQuery = new MamQueryIQ(contactJid);
-            StanzaCollector stanzaCollector = xmppClient.getConnection().createStanzaCollectorAndSend(mamQuery);
-    
-            while (true) {
-                Stanza stanza = stanzaCollector.nextResultOrThrow();
-                if (stanza == null) {
-                    break; // No hay más resultados
-                }
-    
-                if (stanza instanceof Message) {
-                    Message message = (Message) stanza;
-                    if (message.getBody() != null) {
-                        String sender = message.getFrom().asEntityBareJidIfPossible().toString();
-                        String body = message.getBody();
-    
-                        Platform.runLater(() -> {
-                            StringBuilder conversation = conversations.getOrDefault(sender, new StringBuilder());
-                            conversation.append(sender).append(": ").append(body).append("\n");
-                            conversations.put(sender, conversation);
-    
-                            if (contactList.getSelectionModel().getSelectedItem().equals(sender)) {
-                                chatArea.appendText(sender + ": " + body + "\n");
-                            }
-                        });
-                    }
-                }
-            }
-    
-            stanzaCollector.cancel();
-        } catch (Exception e) {
-            e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Error", "Failed to fetch conversation history.");
-        }
-    }  
-
-    // private void updateContactList() {
-    //     try {
-    //         contactList.getItems().clear();
-    //         List<String> contacts = xmppClient.getContactList();
-    //         if (contacts != null) {
-    //             contactList.getItems().addAll(contacts);
-    //         }
-    //     } catch (Exception e) {
-    //         e.printStackTrace();
-    //         showAlert(Alert.AlertType.ERROR, "Error", "Failed to retrieve contact list.");
-    //     }
-    // }
-
     private Contact findContactByJid(String jid) {
         for (Contact contact : contactList.getItems()) {
             if (contact.getJid().equals(jid)) {
@@ -413,7 +386,6 @@ public class XmppChatApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Error", "Failed to retrieve contact list.");
         }
     }
-    
 
     private void updateChatArea(String userJid) {
         chatArea.clear();
@@ -421,7 +393,7 @@ public class XmppChatApp extends Application {
         if (conversation != null) {
             chatArea.appendText(conversation.toString());
         }
-    }
+    }    
 
     private void sendMessage() {
         String message = messageField.getText();
@@ -431,18 +403,22 @@ public class XmppChatApp extends Application {
             return;
         }
     
-        String contactJid = selectedContact.getJid(); // Obtén solo el JID
+        String contactJid = selectedContact.getJid();
+        String formattedMessage = "Me: " + message;
     
         try {
-            xmppClient.sendMessage(contactJid, message); // Envía el mensaje usando solo el JID
-            chatArea.appendText("Me: " + message + "\n");
+            xmppClient.sendMessage(contactJid, message);
+            chatArea.appendText(formattedMessage + "\n");
+    
+            // Almacenar la conversación en el HashMap
+            conversations.computeIfAbsent(contactJid, k -> new StringBuilder()).append(formattedMessage).append("\n");
+    
             messageField.clear();
         } catch (Exception e) {
             e.printStackTrace();
             showAlert(Alert.AlertType.ERROR, "Error", "Failed to send message.");
         }
     }
-    
     
 
     private void addUser() {
@@ -630,38 +606,50 @@ public class XmppChatApp extends Application {
         }
 
         try {
-            EntityFullJid recipientJid = JidCreate.entityFullFrom(selectedContact.getJid());
-            OutgoingFileTransfer fileTransfer = FileTransferManager.getInstanceFor(xmppClient.getConnection())
-                .createOutgoingFileTransfer(recipientJid);
-
+            // Subir el archivo y obtener la URL
             File file = new File(filePath);
-            fileTransfer.sendFile(file, "Sending file: " + file.getName());
+            String fileUrl = uploadFile(file);
 
-            // Mostrar progreso
-            new Thread(() -> {
-                try {
-                    while (!fileTransfer.isDone()) {
-                        if (fileTransfer.getStatus().equals(FileTransfer.Status.error)) {
-                            Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "File transfer failed."));
-                            return;
-                        }
-                        // Actualizar interfaz con el progreso
-                        Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "File Transfer", "Progress: " + fileTransfer.getProgress() * 100 + "%"));
-                        Thread.sleep(1000);
-                    }
-                    Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Success", "File transfer complete."));
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }).start();
+            // Enviar la URL como mensaje
+            EntityBareJid recipientJid = JidCreate.entityBareFrom(selectedContact.getJid());
+            Message message = new Message();
+            message.setBody("File uploaded: " + fileUrl);
+            message.setTo(recipientJid);
+            xmppClient.getConnection().sendStanza(message);
 
+            // Mostrar el enlace en el área de chat
+            String chatMessage = "File uploaded: " + fileUrl + "\n";
+            conversations.computeIfAbsent(selectedContact.getJid(), k -> new StringBuilder()).append(chatMessage);
+            updateChatArea(selectedContact.getJid());
+
+            showAlert(Alert.AlertType.INFORMATION, "Success", "File uploaded successfully. URL: " + fileUrl);
         } catch (Exception e) {
             e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Error", "Failed to send file.");
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to upload file.");
         }
     }
 
+    public String uploadFile(File file) throws IOException, InterruptedException, URISyntaxException, Exception {
+        HttpClient client = SSLUtilities.createInsecureHttpClient();
 
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(new URI("https://alumchat.lol:7443/httpfileupload/"))
+            .POST(HttpRequest.BodyPublishers.ofFile(file.toPath()))
+            .build();
+
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() == 200) {
+            // Extraer la URL del archivo del cuerpo de la respuesta
+            // Aquí deberías analizar el cuerpo de la respuesta JSON o texto que contiene la URL del archivo subido.
+            // Supongamos que la URL es simplemente la respuesta en sí.
+            return response.body();
+        } else {
+            throw new IOException("Failed to upload file. Server responded with code: " + response.statusCode());
+        }
+    }
+
+    
     private void receiveFile(IncomingFileTransfer fileTransfer) {
         new Thread(() -> {
             try {

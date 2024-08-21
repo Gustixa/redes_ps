@@ -24,6 +24,7 @@ import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.jid.parts.Localpart;
 import org.jxmpp.jid.parts.Resourcepart;
 import org.jxmpp.stringprep.XmppStringprepException;
+import org.jivesoftware.smack.roster.Roster;
 
 import org.jivesoftware.smack.packet.Presence.Mode;
 import org.jivesoftware.smack.packet.Presence.Type;
@@ -42,7 +43,16 @@ public class XmppClient {
     private XMPPTCPConnection connection;
     private final Map<String, List<String>> messageHistory = new HashMap<>(); // Mapa para guardar el historial de mensajes
 
- 
+    public AbstractXMPPConnection getConnection() {
+        return connection;
+    }
+
+    // Dentro de XmppClient.java
+    public Roster getRoster() {
+        return Roster.getInstanceFor(connection);
+    }
+
+
     public void connect(String username, String password) throws XmppStringprepException, XMPPException, SmackException, IOException, InterruptedException {
         XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
                 .setXmppDomain("alumchat.lol")
@@ -66,11 +76,6 @@ public class XmppClient {
             }
         });
     }
-
-    public AbstractXMPPConnection getConnection() {
-        return connection;
-    }
-
  
     public void registerAccount(String username, String password) throws XmppStringprepException, SmackException, IOException, InterruptedException, XMPPException {
         AccountManager accountManager = AccountManager.getInstance(connection);
