@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Presence;
@@ -16,28 +17,19 @@ import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.stringprep.XmppStringprepException;
+import org.jxmpp.jid.EntityBareJid;
+import java.io.File;
+import javafx.application.Platform;
 
 import org.jivesoftware.smack.StanzaListener;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Stanza;
-import org.jxmpp.jid.EntityBareJid;
 import org.jxmpp.jid.EntityFullJid;
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URI;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Path;
 
 import javafx.application.Application;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -52,12 +44,13 @@ import java.util.ArrayList;
 import org.jivesoftware.smackx.filetransfer.FileTransferManager;
 import org.jivesoftware.smackx.filetransfer.FileTransferRequest;
 import org.jivesoftware.smackx.filetransfer.IncomingFileTransfer;
+import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
+import org.jivesoftware.smackx.disco.packet.DiscoverInfo;
 import org.jivesoftware.smackx.filetransfer.FileTransfer;
 import org.jivesoftware.smackx.filetransfer.FileTransferListener;
 
 import org.jivesoftware.smackx.filetransfer.OutgoingFileTransfer;
 import org.jivesoftware.smackx.filetransfer.FileTransfer.Status;
-
 
 import org.jivesoftware.smack.packet.MessageBuilder;
 
@@ -604,50 +597,82 @@ public class XmppChatApp extends Application {
             showAlert(Alert.AlertType.WARNING, "Warning", "Please select a contact and choose a file.");
             return;
         }
-
+    
         try {
-            // Subir el archivo y obtener la URL
-            File file = new File(filePath);
-            String fileUrl = uploadFile(file);
-
-            // Enviar la URL como mensaje
             EntityBareJid recipientJid = JidCreate.entityBareFrom(selectedContact.getJid());
-            Message message = new Message();
-            message.setBody("File uploaded: " + fileUrl);
-            message.setTo(recipientJid);
-            xmppClient.getConnection().sendStanza(message);
-
-            // Mostrar el enlace en el área de chat
-            String chatMessage = "File uploaded: " + fileUrl + "\n";
-            conversations.computeIfAbsent(selectedContact.getJid(), k -> new StringBuilder()).append(chatMessage);
-            updateChatArea(selectedContact.getJid());
-
-            showAlert(Alert.AlertType.INFORMATION, "Success", "File uploaded successfully. URL: " + fileUrl);
+    
+            // Obtener el Roster a través de XmppClient
+            Roster roster = xmppClient.getRoster();
+    
+            // Obtener la presencia del contacto
+            Presence presence = roster.getPresence(recipientJid);
+            Jid fullJid = presence.getFrom();
+    
+            // Verificar si el destinatario soporta la transferencia de archivos
+            if (!(fullJid instanceof EntityFullJid) || !isFileTransferSupported((EntityFullJid) fullJid)) {
+                showAlert(Alert.AlertType.ERROR, "Error", "Cannot send file: Contact is offline or does not support file transfer.");
+                return;
+            }
+    
+            // Verificar si el JID completo está disponible (el contacto está en línea)
+            if (presence.isAvailable()) {
+                FileTransferManager manager = FileTransferManager.getInstanceFor(xmppClient.getConnection());
+                OutgoingFileTransfer fileTransfer = manager.createOutgoingFileTransfer((EntityFullJid) fullJid);
+    
+                File file = new File(filePath);
+                fileTransfer.sendFile(file, "Sending file: " + file.getName());
+    
+                // Mostrar progreso
+                new Thread(() -> {
+                    try {
+                        while (!fileTransfer.isDone()) {
+                            if (fileTransfer.getStatus().equals(FileTransfer.Status.error)) {
+                                Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "File transfer failed: " + fileTransfer.getError()));
+                                return;
+                            } else if (fileTransfer.getStatus().equals(FileTransfer.Status.cancelled)) {
+                                Platform.runLater(() -> showAlert(Alert.AlertType.WARNING, "Cancelled", "File transfer was cancelled."));
+                                return;
+                            }
+    
+                            Platform.runLater(() -> {
+                                double progress = fileTransfer.getProgress() * 100;
+                                showAlert(Alert.AlertType.INFORMATION, "File Transfer", "Progress: " + progress + "%");
+                            });
+    
+                            Thread.sleep(1000);
+                        }
+    
+                        if (fileTransfer.getStatus().equals(FileTransfer.Status.complete)) {
+                            Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Success", "File transfer complete."));
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+    
+            } else {
+                showAlert(Alert.AlertType.ERROR, "Error", "Cannot send file: Contact is offline.");
+            }
+    
         } catch (Exception e) {
             e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Error", "Failed to upload file.");
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to send file.");
         }
     }
 
-    public String uploadFile(File file) throws IOException, InterruptedException, URISyntaxException, Exception {
-        HttpClient client = SSLUtilities.createInsecureHttpClient();
+    private boolean isFileTransferSupported(EntityFullJid jid) {
+        try {
+            ServiceDiscoveryManager discoManager = ServiceDiscoveryManager.getInstanceFor(xmppClient.getConnection());
+            DiscoverInfo info = discoManager.discoverInfo(jid);
 
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(new URI("https://alumchat.lol:7443/httpfileupload/"))
-            .POST(HttpRequest.BodyPublishers.ofFile(file.toPath()))
-            .build();
-
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-        if (response.statusCode() == 200) {
-            // Extraer la URL del archivo del cuerpo de la respuesta
-            // Aquí deberías analizar el cuerpo de la respuesta JSON o texto que contiene la URL del archivo subido.
-            // Supongamos que la URL es simplemente la respuesta en sí.
-            return response.body();
-        } else {
-            throw new IOException("Failed to upload file. Server responded with code: " + response.statusCode());
+            return info.containsFeature("http://jabber.org/protocol/si/profile/file-transfer");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
         }
     }
+
+
 
     
     private void receiveFile(IncomingFileTransfer fileTransfer) {
