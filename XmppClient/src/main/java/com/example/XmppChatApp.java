@@ -4,8 +4,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Presence;
@@ -25,9 +23,6 @@ import org.jivesoftware.smack.StanzaListener;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Stanza;
-import org.jxmpp.jid.EntityFullJid;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
@@ -44,13 +39,9 @@ import java.util.ArrayList;
 import org.jivesoftware.smackx.filetransfer.FileTransferManager;
 import org.jivesoftware.smackx.filetransfer.FileTransferRequest;
 import org.jivesoftware.smackx.filetransfer.IncomingFileTransfer;
-import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
-import org.jivesoftware.smackx.disco.packet.DiscoverInfo;
 import org.jivesoftware.smackx.filetransfer.FileTransfer;
 import org.jivesoftware.smackx.filetransfer.FileTransferListener;
 
-import org.jivesoftware.smackx.filetransfer.OutgoingFileTransfer;
-import org.jivesoftware.smackx.filetransfer.FileTransfer.Status;
 
 import org.jivesoftware.smack.packet.MessageBuilder;
 
@@ -144,14 +135,25 @@ public class XmppChatApp extends Application {
         createGroupButton.setOnAction(e -> showCreateGroupDialog());
 
         sendFileButton = new Button("Send File");
-
         sendFileButton.setOnAction(e -> {
             FileChooser fileChooser = new FileChooser();
             File file = fileChooser.showOpenDialog(primaryStage);
             if (file != null) {
-                sendFile(file.getAbsolutePath());
+                Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
+                if (selectedContact != null) {
+                    try {
+                        xmppClient.sendFile(file, selectedContact.getJid());
+                        chatArea.appendText("File sent to " + selectedContact.getJid() + ": " + file.getName() + "\n");
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        showAlert(Alert.AlertType.ERROR, "File Transfer Error", "Failed to send file.");
+                    }
+                } else {
+                    showAlert(Alert.AlertType.WARNING, "No Contact Selected", "Please select a contact to send the file to.");
+                }
             }
         });
+        
 
         VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, createGroupButton,
         showDetailsButton,presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton,
@@ -167,7 +169,7 @@ public class XmppChatApp extends Application {
         root.setBottom(bottomPane);
         root.setRight(rightPane);
 
-        Scene scene = new Scene(root, 2000, 1600);
+        Scene scene = new Scene(root, 1000, 800);
 
         primaryStage.setTitle("XmppClient");
         primaryStage.setScene(scene);
@@ -216,7 +218,7 @@ public class XmppChatApp extends Application {
                     }
                 }
             }, stanza -> stanza instanceof Message);
-                     // Agregar listener para solicitudes de suscripción entrantes
+            // Agregar listener para solicitudes de suscripción entrantes
             xmppClient.getConnection().addAsyncStanzaListener(stanza -> {
                 Presence presence = (Presence) stanza;
                 if (presence.getType() == Presence.Type.subscribe) {
@@ -272,28 +274,63 @@ public class XmppChatApp extends Application {
                 }
             }, stanza -> stanza instanceof IQ);
 
+            // Listener para transferencias de archivos entrantes
             FileTransferManager fileTransferManager = FileTransferManager.getInstanceFor(xmppClient.getConnection());
             fileTransferManager.addFileTransferListener(new FileTransferListener() {
                 @Override
                 public void fileTransferRequest(FileTransferRequest request) {
                     Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, 
-                            "Incoming file transfer request from " + request.getRequestor().asBareJid() + ". Accept?", 
-                            ButtonType.YES, ButtonType.NO);
+                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                                "Incoming file transfer request from " + request.getRequestor().asBareJid() + ". Accept?",
+                                ButtonType.YES, ButtonType.NO);
                         alert.showAndWait().ifPresent(response -> {
                             if (response == ButtonType.YES) {
                                 try {
-                                    IncomingFileTransfer incomingFileTransfer = request.accept();
-                                    receiveFile(incomingFileTransfer);
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                    showAlert(Alert.AlertType.ERROR, "Error", "Failed to accept file transfer.");
+                                    File file = new File("downloads/" + request.getFileName());
+                                    IncomingFileTransfer transfer = request.accept();
+                                    
+                                    // Monitor progress in a separate thread
+                                    Thread transferThread = new Thread(() -> {
+                                        try {
+                                            transfer.receiveFile(file);
+                                            while (!transfer.isDone()) {
+                                                double progress = (double) transfer.getAmountWritten() / transfer.getFileSize();
+                                                System.out.println("Transfer progress: " + (progress * 100) + "%");
+                                                
+                                                if (transfer.getStatus().equals(FileTransfer.Status.error)) {
+                                                    System.err.println("Error during file transfer: " + transfer.getError());
+                                                    break;
+                                                }
+            
+                                                if (transfer.getStatus().equals(FileTransfer.Status.cancelled) || transfer.getStatus().equals(FileTransfer.Status.refused)) {
+                                                    System.out.println("File transfer cancelled or refused.");
+                                                    break;
+                                                }
+            
+                                                Thread.sleep(1000); // Wait for a second before checking again
+                                            }
+            
+                                            if (transfer.getStatus().equals(FileTransfer.Status.complete)) {
+                                                Platform.runLater(() -> chatArea.appendText("File received: " + file.getAbsolutePath() + "\n"));
+                                            }
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                            Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "File Transfer Error", "Failed to receive file."));
+                                        }
+                                    });
+                                    
+                                    transferThread.start();
+            
+                                } catch (Exception ex) {
+                                    ex.printStackTrace();
+                                    showAlert(Alert.AlertType.ERROR, "File Transfer Error", "Failed to receive file.");
                                 }
                             }
                         });
                     });
                 }
             });
+            
 
             xmppClient.getConnection().addAsyncStanzaListener(new StanzaListener() {
             @Override
@@ -591,101 +628,17 @@ public class XmppChatApp extends Application {
         }
     }
 
-    private void sendFile(String filePath) {
-        Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
-        if (selectedContact == null || filePath == null || filePath.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "Warning", "Please select a contact and choose a file.");
-            return;
-        }
-    
-        try {
-            EntityBareJid recipientJid = JidCreate.entityBareFrom(selectedContact.getJid());
-    
-            // Obtener el Roster a través de XmppClient
-            Roster roster = xmppClient.getRoster();
-    
-            // Obtener la presencia del contacto
-            Presence presence = roster.getPresence(recipientJid);
-            Jid fullJid = presence.getFrom();
-    
-            // Verificar si el destinatario soporta la transferencia de archivos
-            if (!(fullJid instanceof EntityFullJid) || !isFileTransferSupported((EntityFullJid) fullJid)) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Cannot send file: Contact is offline or does not support file transfer.");
-                return;
-            }
-    
-            // Verificar si el JID completo está disponible (el contacto está en línea)
-            if (presence.isAvailable()) {
-                FileTransferManager manager = FileTransferManager.getInstanceFor(xmppClient.getConnection());
-                OutgoingFileTransfer fileTransfer = manager.createOutgoingFileTransfer((EntityFullJid) fullJid);
-    
-                File file = new File(filePath);
-                fileTransfer.sendFile(file, "Sending file: " + file.getName());
-    
-                // Mostrar progreso
-                new Thread(() -> {
-                    try {
-                        while (!fileTransfer.isDone()) {
-                            if (fileTransfer.getStatus().equals(FileTransfer.Status.error)) {
-                                Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "File transfer failed: " + fileTransfer.getError()));
-                                return;
-                            } else if (fileTransfer.getStatus().equals(FileTransfer.Status.cancelled)) {
-                                Platform.runLater(() -> showAlert(Alert.AlertType.WARNING, "Cancelled", "File transfer was cancelled."));
-                                return;
-                            }
-    
-                            Platform.runLater(() -> {
-                                double progress = fileTransfer.getProgress() * 100;
-                                showAlert(Alert.AlertType.INFORMATION, "File Transfer", "Progress: " + progress + "%");
-                            });
-    
-                            Thread.sleep(1000);
-                        }
-    
-                        if (fileTransfer.getStatus().equals(FileTransfer.Status.complete)) {
-                            Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Success", "File transfer complete."));
-                        }
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }).start();
-    
-            } else {
-                showAlert(Alert.AlertType.ERROR, "Error", "Cannot send file: Contact is offline.");
-            }
-    
-        } catch (Exception e) {
-            e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Error", "Failed to send file.");
-        }
-    }
-
-    private boolean isFileTransferSupported(EntityFullJid jid) {
-        try {
-            ServiceDiscoveryManager discoManager = ServiceDiscoveryManager.getInstanceFor(xmppClient.getConnection());
-            DiscoverInfo info = discoManager.discoverInfo(jid);
-
-            return info.containsFeature("http://jabber.org/protocol/si/profile/file-transfer");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-
-
-    
-    private void receiveFile(IncomingFileTransfer fileTransfer) {
-        new Thread(() -> {
-            try {
-                // Asegúrate de que el archivo se cree correctamente en el directorio actual
-                File file = new File("received_" + fileTransfer.getFileName());
-                fileTransfer.receiveFile(file);  // Usa receiveFile, no recieveFile
-                Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Success", "File received: " + fileTransfer.getFileName()));
-            } catch (Exception e) {
-                e.printStackTrace();
-                Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "Failed to receive file."));
-            }
-        }).start();
-    }
+    // private void receiveFile(IncomingFileTransfer fileTransfer) {
+    //     new Thread(() -> {
+    //         try {
+    //             // Asegúrate de que el archivo se cree correctamente en el directorio actual
+    //             File file = new File("received_" + fileTransfer.getFileName());
+    //             fileTransfer.receiveFile(file);  // Usa receiveFile, no recieveFile
+    //             Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Success", "File received: " + fileTransfer.getFileName()));
+    //         } catch (Exception e) {
+    //             e.printStackTrace();
+    //             Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "Failed to receive file."));
+    //         }
+    //     }).start();
+    // }
 }

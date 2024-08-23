@@ -12,19 +12,25 @@ import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.PresenceBuilder;
-import org.jivesoftware.smackx.filetransfer.FileTransferManager;
-import org.jivesoftware.smackx.filetransfer.OutgoingFileTransfer;
 import org.jivesoftware.smackx.iqregister.AccountManager;
 import org.jivesoftware.smackx.muc.MultiUserChat;
 import org.jivesoftware.smackx.muc.MultiUserChatManager;
 import org.jivesoftware.smackx.receipts.DeliveryReceiptManager;
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.EntityBareJid;
+import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.jid.parts.Localpart;
 import org.jxmpp.jid.parts.Resourcepart;
 import org.jxmpp.stringprep.XmppStringprepException;
-import org.jivesoftware.smack.roster.Roster;
+
+import javax.net.ssl.*;
+import java.security.cert.X509Certificate;
+
+import org.jivesoftware.smack.packet.IQ;
+import org.jivesoftware.smack.packet.ExtensionElement;
+import org.jivesoftware.smackx.si.packet.StreamInitiation;
+
 
 import org.jivesoftware.smack.packet.Presence.Mode;
 import org.jivesoftware.smack.packet.Presence.Type;
@@ -42,12 +48,15 @@ public class XmppClient {
 
     private XMPPTCPConnection connection;
     private final Map<String, List<String>> messageHistory = new HashMap<>(); // Mapa para guardar el historial de mensajes
+    private FileUploadHandler fileUploadHandler; // Instancia de FileUploadHandler
 
+    public XmppClient(){
+        disableCertificateValidation();
+    }
     public AbstractXMPPConnection getConnection() {
         return connection;
     }
 
-    // Dentro de XmppClient.java
     public Roster getRoster() {
         return Roster.getInstanceFor(connection);
     }
@@ -63,6 +72,8 @@ public class XmppClient {
 
         connection = new XMPPTCPConnection(config);
         connection.connect().login();
+
+        fileUploadHandler = new FileUploadHandler(connection); // Inicializar la instancia de FileUploadHandler
 
         System.out.println("Connected as: " + connection.getUser());
                 // Añadir el listener para los mensajes entrantes
@@ -208,10 +219,40 @@ public class XmppClient {
         });
     }
 
-    public void sendFile(String toJid, File file) throws XmppStringprepException, SmackException, InterruptedException, IOException {
-        FileTransferManager manager = FileTransferManager.getInstanceFor(connection);
-        OutgoingFileTransfer transfer = manager.createOutgoingFileTransfer(JidCreate.entityFullFrom(toJid + "/Smack"));
-        transfer.sendFile(file, "Sending file");
-        System.out.println("File sent to " + toJid);
+    public void sendFile(File file, String toJid) throws Exception {
+        FileUploadIQ fileUploadIQ = new FileUploadIQ(file.getName(), file.length(), "application/octet-stream");
+        fileUploadIQ.setTo(JidCreate.from("httpfileupload.alumchat.lol"));
+    
+        // Enviar el IQ
+        connection.sendStanza(fileUploadIQ);
+    
+        // Implementar lógica para manejar la respuesta del servidor aquí
+        System.out.println("Request sent for file upload: " + file.getName());
+    
+        // Llamar al método handleUpload del FileUploadHandler para subir el archivo
+        fileUploadHandler.handleUpload(file, JidCreate.from(toJid));
+        System.out.println("File sent to " + toJid + ": " + file.getName());
     }
+    
+    public static void disableCertificateValidation() {
+        try {
+            TrustManager[] trustAllCerts = new TrustManager[] {
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return null; }
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) { }
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) { }
+                }
+            };
+    
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+    
+            HostnameVerifier allHostsValid = (hostname, session) -> true;
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
   }
