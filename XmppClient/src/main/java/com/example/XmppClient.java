@@ -1,14 +1,17 @@
 package com.example;
 
+import org.aspectj.weaver.patterns.ConcreteCflowPointcut.Slot;
 import org.jivesoftware.smack.*;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
-import org.jivesoftware.smack.chat2.ChatManager;
+import org.jivesoftware.smack.chat2.ChatManager;  // Mantener esta importación
 import org.jivesoftware.smack.chat2.Chat;
 import org.jivesoftware.smack.chat2.IncomingChatMessageListener;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
+// import org.jivesoftware.smack.packet.Element;
+import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.PresenceBuilder;
@@ -27,10 +30,9 @@ import org.jxmpp.stringprep.XmppStringprepException;
 import javax.net.ssl.*;
 import java.security.cert.X509Certificate;
 
-import org.jivesoftware.smack.packet.IQ;
-import org.jivesoftware.smack.packet.ExtensionElement;
-import org.jivesoftware.smackx.si.packet.StreamInitiation;
-
+// import org.jivesoftware.smackx.filetransfer.FileTransferManager;
+// import org.jivesoftware.smackx.filetransfer.OutgoingFileTransfer;
+// import org.jivesoftware.smackx.filetransfer.FileTransfer.Status;
 
 import org.jivesoftware.smack.packet.Presence.Mode;
 import org.jivesoftware.smack.packet.Presence.Type;
@@ -42,6 +44,18 @@ import java.io.IOException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.io.OutputStream;  // Mantener esta importación
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.file.Files;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+import java.io.StringReader;
 
 
 public class XmppClient {
@@ -113,6 +127,7 @@ public class XmppClient {
         chatManager.chatWith(jid).send(message);
         System.out.println("Message sent to " + toJid + ": " + message);
     }
+    
 
 
     public void addIncomingMessageListener(IncomingChatMessageListener listener) {
@@ -229,11 +244,76 @@ public class XmppClient {
         // Implementar lógica para manejar la respuesta del servidor aquí
         System.out.println("Request sent for file upload: " + file.getName());
     
+        // Esperar y manejar la respuesta del servidor
+        connection.addAsyncStanzaListener(stanza -> {
+            if (stanza instanceof IQ) {
+                IQ response = (IQ) stanza;
+                if (response.getType() == IQ.Type.result) {
+                    try {
+                        // Obtener la URL del archivo desde la respuesta y subir el archivo
+                        String uploadUrl = extractUploadUrlFromResponse(response);
+                        uploadFileToServer(file, uploadUrl);
+    
+                        // Enviar la URL del archivo al receptor
+                        sendMessage(toJid, "File uploaded: " + uploadUrl);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        System.out.println("Error during file upload: " + e.getMessage());
+                    }
+                } else {
+                    System.out.println("File upload request failed.");
+                }
+            }
+        }, stanza -> stanza.hasExtension("request", "urn:xmpp:http:upload:0"));
+    
         // Llamar al método handleUpload del FileUploadHandler para subir el archivo
         fileUploadHandler.handleUpload(file, JidCreate.from(toJid));
         System.out.println("File sent to " + toJid + ": " + file.getName());
     }
     
+    
+    private void uploadFileToServer(File file, String uploadUrl) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) new URL(uploadUrl).openConnection();
+        connection.setDoOutput(true);
+        connection.setRequestMethod("PUT");
+        connection.setRequestProperty("Content-Type", "application/octet-stream");
+    
+        try (OutputStream outputStream = connection.getOutputStream()) {
+            Files.copy(file.toPath(), outputStream);
+        }
+    
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+            System.out.println("File uploaded successfully: " + uploadUrl);
+        } else {
+            System.out.println("File upload failed with response code: " + responseCode);
+        }
+    }
+    
+
+    private String extractUploadUrlFromResponse(IQ response) {
+        String uploadUrl = null;
+        // Convertir la respuesta en un objeto XML y buscar la URL
+        try {
+            String responseXML = response.toXML().toString();
+            // Parsear la respuesta como un documento XML
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document document = builder.parse(new InputSource(new StringReader(responseXML)));
+    
+            // Buscar el nodo "put" que contiene la URL
+            NodeList nodeList = document.getElementsByTagName("put");
+            if (nodeList.getLength() > 0) {
+                Element putElement = (Element) nodeList.item(0);
+                uploadUrl = putElement.getTextContent();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    
+        return uploadUrl;
+    }
+
     public static void disableCertificateValidation() {
         try {
             TrustManager[] trustAllCerts = new TrustManager[] {

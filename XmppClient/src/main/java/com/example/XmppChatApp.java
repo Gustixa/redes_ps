@@ -42,7 +42,6 @@ import org.jivesoftware.smackx.filetransfer.IncomingFileTransfer;
 import org.jivesoftware.smackx.filetransfer.FileTransfer;
 import org.jivesoftware.smackx.filetransfer.FileTransferListener;
 
-
 import org.jivesoftware.smack.packet.MessageBuilder;
 
 public class XmppChatApp extends Application {
@@ -208,11 +207,7 @@ public class XmppChatApp extends Application {
                                     updateChatArea(sender);
                                 }
             
-                                // Evitar notificaciones duplicadas
-                                String notification = "Nuevo mensaje de " + sender;
-                                if (!notificationList.getItems().contains(notification)) {
-                                    notificationList.getItems().add(notification);
-                                }
+                                notificationList.getItems().add("Nuevo mensaje de " + sender);
                             });
                         }
                     }
@@ -330,32 +325,7 @@ public class XmppChatApp extends Application {
                     });
                 }
             });
-            
-
-            xmppClient.getConnection().addAsyncStanzaListener(new StanzaListener() {
-            @Override
-            public void processStanza(Stanza stanza) {
-                if (stanza instanceof Message) {
-                    Message message = (Message) stanza;
-                    EntityBareJid from = (EntityBareJid) message.getFrom().asEntityBareJidIfPossible();
-
-                    if (from != null && message.getBody() != null) {
-                        Platform.runLater(() -> {
-                            String sender = from.asEntityBareJidString();
-                            String receivedMessage = sender + ": " + message.getBody();
-                            
-                            notificationList.getItems().add("Nuevo mensaje de " + sender);
-                            chatArea.appendText(receivedMessage + "\n");
-
-                            // Almacenar la conversación en el HashMap
-                            conversations.computeIfAbsent(sender, k -> new StringBuilder()).append(receivedMessage).append("\n");
-                        });
-                    }
-                }
-            }
-        }, stanza -> stanza instanceof Message);
-
-            
+                        
             Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
             roster.addRosterListener(new RosterListener() {
                 @Override
@@ -394,6 +364,7 @@ public class XmppChatApp extends Application {
         }
         return null;
     }
+    
     
     private void updateContactList() {
         try {
@@ -627,18 +598,4 @@ public class XmppChatApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Error", "Failed to create group.");
         }
     }
-
-    // private void receiveFile(IncomingFileTransfer fileTransfer) {
-    //     new Thread(() -> {
-    //         try {
-    //             // Asegúrate de que el archivo se cree correctamente en el directorio actual
-    //             File file = new File("received_" + fileTransfer.getFileName());
-    //             fileTransfer.receiveFile(file);  // Usa receiveFile, no recieveFile
-    //             Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Success", "File received: " + fileTransfer.getFileName()));
-    //         } catch (Exception e) {
-    //             e.printStackTrace();
-    //             Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "Failed to receive file."));
-    //         }
-    //     }).start();
-    // }
 }

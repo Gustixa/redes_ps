@@ -3,7 +3,6 @@ package com.example;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.packet.Message;
-import org.jivesoftware.smack.util.Base64.InputStream;
 import org.jxmpp.jid.Jid;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -28,6 +27,7 @@ public class FileUploadHandler {
         // Supongamos que tienes un servidor HTTP donde puedes subir archivos y obtener un enlace de descarga.
         URL uploadUrl = new URL("https://alumchat.lol:7443/httpfileupload"); // Reemplaza con la URL de tu servidor de subida
 
+        // httpfileupload.alumchat.lol
         // Subir el archivo usando el URL proporcionado
         String downloadLink = uploadFile(file, uploadUrl);
 
