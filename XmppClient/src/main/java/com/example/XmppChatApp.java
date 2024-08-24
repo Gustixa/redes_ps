@@ -573,7 +573,6 @@ public class XmppChatApp extends Application {
         });
     }
     
-    
     private void createGroup(String groupName, List<String> selectedContacts) {
         try {
             for (String contactJid : selectedContacts) {
