@@ -91,7 +91,7 @@ xmpp-chat-app/
 ├── src/
 │   ├── main/
 │   │   ├── java/
-│   │   │   └── com/tuusuario/xmppchatapp/
+│   │   │   └── com/example/
 │   │   │       ├── App.java
 │   │   │       ├── Contact.java
 │   │   │       ├── FileUploadHandler.java
