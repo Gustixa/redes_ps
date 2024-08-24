@@ -92,17 +92,20 @@ xmpp-chat-app/
 │   ├── main/
 │   │   ├── java/
 │   │   │   └── com/tuusuario/xmppchatapp/
-│   │   │       ├── XmppClient.java
-│   │   │       ├── XmppChatApp.java
+│   │   │       ├── App.java
+│   │   │       ├── Contact.java
+│   │   │       ├── FileUploadHandler.java
+│   │   │       ├── FileUploadIQ.java
+│   │   │       ├── GroupData.java
 │   │   │       ├── LoginWindow.java
-│   │   │       └── ChatWindow.java
-│   │   └── resources/
-│   │       └── config.properties
+│   │   │       ├── RegisterWindow.java
+│   │   │       ├── UploadFile.java
+│   │   │       ├── XmppChatApp.java
+│   │   │       ├── XmppClient.java
 │   └── test/
 │       └── java/
 │           └── com/tuusuario/xmppchatapp/
-│               └── XmppClientTest.java
+│               └── AppTest.java
 │
-├── README.md
 └── pom.xml
 
