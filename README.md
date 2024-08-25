@@ -107,4 +107,15 @@ xmpp-chat-app/
 │               └── AppTest.java
 │
 └── pom.xml
+```
+## App.java
+
+This is the main class, where the program start.
+
+## Contact.java
+## GroupData.java
+## LoginWindow.java
+## RegisterWindow.java
+## XmppChatApp.java
+## XmppClient.java
 
