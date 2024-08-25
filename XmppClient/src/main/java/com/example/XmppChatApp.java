@@ -44,6 +44,12 @@ import org.jivesoftware.smackx.filetransfer.FileTransferListener;
 
 import org.jivesoftware.smack.packet.MessageBuilder;
 
+/**
+ * La clase XmppChatApp es una aplicación JavaFX que proporciona una interfaz 
+ * para interactuar con un servidor XMPP. La aplicación permite a los usuarios 
+ * conectarse al servidor, gestionar contactos, enviar mensajes, actualizar la 
+ * presencia y transferir archivos.
+ */
 public class XmppChatApp extends Application {
 
     private XmppClient xmppClient = new XmppClient();
@@ -70,12 +76,23 @@ public class XmppChatApp extends Application {
     private List<String> groupList = new ArrayList<>(); // Lista para almacenar los nombres de los grupos creados
     private ListView<String> groupListView = new ListView<>(); // ListView para mostrar los grupos creados
     private ComboBox<String> presenceStatusComboBox;    
-    
+
+    /**
+     * Establece las credenciales para conectarse al servidor XMPP.
+     * 
+     * @param username El nombre de usuario de la cuenta XMPP.
+     * @param password La contraseña de la cuenta XMPP.
+     */
     public void setCredentials(String username, String password) {
         this.username = username;
         this.password = password;
     }
 
+    /**
+     * Inicializa y arranca la aplicación JavaFX.
+     * 
+     * @param primaryStage El escenario principal para la aplicación JavaFX.
+     */
     @Override
     public void start(Stage primaryStage) {
         contactList = new ListView<>();
@@ -188,10 +205,16 @@ public class XmppChatApp extends Application {
         connectToXmpp();
     }
 
+    /**
+     * Conecta al servidor XMPP utilizando las credenciales proporcionadas.
+     * Configura listeners para manejar mensajes, solicitudes de suscripción, transferencias de archivos,
+     * y cambios en la lista de contactos.
+     */
     private void connectToXmpp() {
         try {
             xmppClient.connect(username, password);
 
+            // Listener para la obtecnio de mensajes y notificaciones, segun contacto
             xmppClient.getConnection().addAsyncStanzaListener(new StanzaListener() {
                 @Override
                 public void processStanza(Stanza stanza) {
@@ -222,7 +245,7 @@ public class XmppChatApp extends Application {
                 }
             }, stanza -> stanza instanceof Message);
     
-            // Agregar listener para solicitudes de suscripción entrantes
+            // Listener para solicitudes de suscripción entrantes
             xmppClient.getConnection().addAsyncStanzaListener(stanza -> {
                 Presence presence = (Presence) stanza;
                 if (presence.getType() == Presence.Type.subscribe) {
@@ -262,13 +285,14 @@ public class XmppChatApp extends Application {
                 }
             }, stanza -> stanza instanceof Presence && ((Presence) stanza).getType() == Presence.Type.subscribe);
 
-
+            // Listener para actualizar los contactos nuevo y existentes
             contactList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
                 if (newValue != null) {
                     updateChatArea(newValue.getJid());
                 }
             });
 
+            // Listener para errores inesperados
             xmppClient.getConnection().addAsyncStanzaListener(stanza -> {
                 if (stanza instanceof IQ) {
                     IQ iq = (IQ) stanza;
@@ -365,6 +389,12 @@ public class XmppChatApp extends Application {
         }
     }
 
+    /**
+     * Busca un contacto por su JID en la lista de contactos.
+     *
+     * @param jid El JID del contacto a buscar.
+     * @return El objeto Contact si se encuentra, de lo contrario null.
+     */
     private Contact findContactByJid(String jid) {
         for (Contact contact : contactList.getItems()) {
             if (contact.getJid().equals(jid)) {
@@ -374,6 +404,10 @@ public class XmppChatApp extends Application {
         return null;
     }
 
+    /**
+     * Actualiza la lista de contactos desde el servidor XMPP.
+     * Agrega cada contacto a la lista de contactos de la interfaz de usuario.
+     */
     private void updateContactList() {
         try {
             contactList.getItems().clear();
@@ -396,6 +430,11 @@ public class XmppChatApp extends Application {
         }
     }
 
+    /**
+     * Actualiza el área de chat con el historial de conversación del usuario seleccionado.
+     *
+     * @param userJid El JID del usuario cuyo historial de conversación se va a mostrar.
+     */
     private void updateChatArea(String userJid) {
         chatArea.clear();
         StringBuilder conversation = conversations.get(userJid);
@@ -404,6 +443,10 @@ public class XmppChatApp extends Application {
         }
     }    
 
+    /**
+     * Envía un mensaje al contacto seleccionado.
+     * El mensaje se muestra en el área de chat y se almacena en el historial de conversaciones.
+     */
     private void sendMessage() {
         String message = messageField.getText();
         Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
@@ -429,7 +472,9 @@ public class XmppChatApp extends Application {
         }
     }
     
-
+    /**
+     * Añade un nuevo contacto a la lista de contactos del usuario.
+     */
     private void addUser() {
         String newUserJid = newUserField.getText();
         if (newUserJid != null && !newUserJid.isEmpty()) {
@@ -446,6 +491,11 @@ public class XmppChatApp extends Application {
         }
     }
 
+    /**
+     * Cierra la sesión del usuario y regresa a la ventana de inicio de sesión.
+     *
+     * @param primaryStage El escenario principal de la aplicación.
+     */
     private void logout(Stage primaryStage) {
         try {
             xmppClient.disconnect();
@@ -458,6 +508,11 @@ public class XmppChatApp extends Application {
         }
     }
 
+    /**
+     * Elimina la cuenta del usuario después de confirmar la acción.
+     *
+     * @param primaryStage El escenario principal de la aplicación.
+     */
     private void deleteAccount(Stage primaryStage) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure you want to delete your account?", ButtonType.YES, ButtonType.NO);
         alert.showAndWait();
@@ -475,6 +530,9 @@ public class XmppChatApp extends Application {
         }
     }
     
+    /**
+     * Actualiza el estado de presencia del usuario en el servidor XMPP según la selección del usuario.
+     */
     private void updatePresenceFromComboBox() {
         String selectedPresence = presenceStatusComboBox.getValue();
         String statusMessage = presenceField.getText();
@@ -488,6 +546,13 @@ public class XmppChatApp extends Application {
         }
     }   
 
+    /**
+     * Muestra una alerta con un mensaje específico.
+     *
+     * @param type El tipo de alerta.
+     * @param title El título de la alerta.
+     * @param message El mensaje de la alerta.
+     */
     private void showAlert(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
@@ -495,6 +560,9 @@ public class XmppChatApp extends Application {
         alert.showAndWait();
     }
 
+    /**
+     * Muestra los detalles de un contacto seleccionado en la lista de contactos.
+     */
     private void showContactDetails() {
         Contact selectedUser = contactList.getSelectionModel().getSelectedItem();
         if (selectedUser != null) {
@@ -525,7 +593,9 @@ public class XmppChatApp extends Application {
         }
     }
     
-
+    /**
+     * Muestra un cuadro de diálogo para crear un grupo seleccionando contactos de la lista.
+     */
     private void showCreateGroupDialog() {
         // Crear un diálogo para seleccionar los contactos para el grupo
         Dialog<List<Object>> dialog = new Dialog<>();
@@ -578,7 +648,13 @@ public class XmppChatApp extends Application {
             }
         });
     }
-    
+  
+    /**
+     * Crea un nuevo grupo con el nombre especificado y añade los contactos seleccionados.
+     *
+     * @param groupName El nombre del grupo.
+     * @param selectedContacts La lista de contactos seleccionados para añadir al grupo.
+     */
     private void createGroup(String groupName, List<String> selectedContacts) {
         try {
             for (String contactJid : selectedContacts) {
