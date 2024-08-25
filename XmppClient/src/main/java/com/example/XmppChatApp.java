@@ -141,7 +141,7 @@ public class XmppChatApp extends Application {
                 Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
                 if (selectedContact != null) {
                     try {
-                        xmppClient.sendFile(file, selectedContact.getJid());
+                        xmppClient.enviarArchivoBase64(selectedContact.getJid(), file);
                         chatArea.appendText("File sent to " + selectedContact.getJid() + ": " + file.getName() + "\n");
                     } catch (Exception ex) {
                         ex.printStackTrace();
@@ -151,8 +151,7 @@ public class XmppChatApp extends Application {
                     showAlert(Alert.AlertType.WARNING, "No Contact Selected", "Please select a contact to send the file to.");
                 }
             }
-        });
-        
+        });     
 
         VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, createGroupButton,
         showDetailsButton,presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton,
@@ -193,26 +192,30 @@ public class XmppChatApp extends Application {
                     if (stanza instanceof Message) {
                         Message message = (Message) stanza;
                         EntityBareJid from = (EntityBareJid) message.getFrom().asEntityBareJidIfPossible();
-            
+    
                         if (from != null && message.getBody() != null) {
                             Platform.runLater(() -> {
                                 String sender = from.asEntityBareJidString();
                                 String messageBody = message.getBody();
-            
-                                // Evitar mensajes duplicados en el historial
+    
+                                // Almacena el mensaje en el historial de conversaciones
                                 StringBuilder conversation = conversations.computeIfAbsent(sender, k -> new StringBuilder());
-                                String newMessage = sender + ": " + messageBody + "\n";
-                                if (!conversation.toString().contains(newMessage)) {
-                                    conversation.append(newMessage);
+                                conversation.append(sender).append(": ").append(messageBody).append("\n");
+    
+                                // Añade una notificación del nuevo mensaje
+                                notificationList.getItems().add("Nuevo mensaje de " + sender);
+    
+                                // Si el contacto está actualmente seleccionado, actualiza el área de chat
+                                Contact selectedContact = contactList.getSelectionModel().getSelectedItem();
+                                if (selectedContact != null && selectedContact.getJid().equals(sender)) {
                                     updateChatArea(sender);
                                 }
-            
-                                notificationList.getItems().add("Nuevo mensaje de " + sender);
                             });
                         }
                     }
                 }
             }, stanza -> stanza instanceof Message);
+    
             // Agregar listener para solicitudes de suscripción entrantes
             xmppClient.getConnection().addAsyncStanzaListener(stanza -> {
                 Presence presence = (Presence) stanza;
@@ -325,7 +328,7 @@ public class XmppChatApp extends Application {
                     });
                 }
             });
-                        
+                
             Roster roster = Roster.getInstanceFor(xmppClient.getConnection());
             roster.addRosterListener(new RosterListener() {
                 @Override

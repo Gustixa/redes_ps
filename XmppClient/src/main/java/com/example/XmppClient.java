@@ -30,10 +30,6 @@ import org.jxmpp.stringprep.XmppStringprepException;
 import javax.net.ssl.*;
 import java.security.cert.X509Certificate;
 
-// import org.jivesoftware.smackx.filetransfer.FileTransferManager;
-// import org.jivesoftware.smackx.filetransfer.OutgoingFileTransfer;
-// import org.jivesoftware.smackx.filetransfer.FileTransfer.Status;
-
 import org.jivesoftware.smack.packet.Presence.Mode;
 import org.jivesoftware.smack.packet.Presence.Type;
 
@@ -44,7 +40,7 @@ import java.io.IOException;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.io.OutputStream;  // Mantener esta importación
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
@@ -55,7 +51,10 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+
 import java.io.StringReader;
+
+import java.util.Base64;
 
 
 public class XmppClient {
@@ -333,6 +332,21 @@ public class XmppClient {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void enviarArchivoBase64(String jidDestino, File archivo) throws Exception {
+        // Leer el archivo y codificarlo en Base64
+        byte[] bytesArchivo = Files.readAllBytes(archivo.toPath());
+        String archivoCodificado = Base64.getEncoder().encodeToString(bytesArchivo);
+
+        // Crear el mensaje XMPP y adjuntar el archivo codificado
+        Message mensaje = new Message();
+        mensaje.setTo(JidCreate.entityBareFrom(jidDestino));
+        mensaje.setBody(archivoCodificado);
+        mensaje.addSubject("file-transfer", archivo.getName()); // Para identificar que es una transferencia de archivo
+
+        // Enviar el mensaje
+        getConnection().sendStanza(mensaje);
     }
     
   }
