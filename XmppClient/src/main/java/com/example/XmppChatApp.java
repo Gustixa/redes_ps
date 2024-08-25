@@ -69,7 +69,7 @@ public class XmppChatApp extends Application {
     private ListView<String> notificationList;
     private List<String> groupList = new ArrayList<>(); // Lista para almacenar los nombres de los grupos creados
     private ListView<String> groupListView = new ListView<>(); // ListView para mostrar los grupos creados
-    
+    private ComboBox<String> presenceStatusComboBox;    
     
     public void setCredentials(String username, String password) {
         this.username = username;
@@ -80,6 +80,7 @@ public class XmppChatApp extends Application {
     public void start(Stage primaryStage) {
         contactList = new ListView<>();
         chatArea = new TextArea();
+        presenceLabel = new Label(); // Si aún no ha sido inicializado
         chatArea.setEditable(false);
 
         notificationList = new ListView<>();
@@ -116,7 +117,7 @@ public class XmppChatApp extends Application {
         logoutButton = new Button("Logout");
         deleteAccountButton = new Button("Delete Account");
 
-        presenceLabel = new Label("Presence:");
+        presenceLabel.setText("Presence: ");
         presenceField = new TextField();
         updatePresenceButton = new Button("Update Presence");
 
@@ -128,7 +129,7 @@ public class XmppChatApp extends Application {
         addUserButton.setOnAction(e -> addUser());
         logoutButton.setOnAction(e -> logout(primaryStage));
         deleteAccountButton.setOnAction(e -> deleteAccount(primaryStage));
-        updatePresenceButton.setOnAction(e -> updatePresence());
+        updatePresenceButton.setOnAction(e -> updatePresenceFromComboBox());
 
         createGroupButton = new Button("Create Group");
         createGroupButton.setOnAction(e -> showCreateGroupDialog());
@@ -152,9 +153,14 @@ public class XmppChatApp extends Application {
                 }
             }
         });     
+        presenceStatusComboBox = new ComboBox<>();
+        presenceStatusComboBox.getItems().addAll("Available", "Away", "Busy", "Chat", "Offline");
+        presenceStatusComboBox.setValue("Available"); // Estado predeterminado
+        presenceStatusComboBox.setOnAction(e -> updatePresenceFromComboBox());
+
 
         VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, createGroupButton,
-        showDetailsButton,presenceLabel, presenceField, updatePresenceButton, logoutButton, deleteAccountButton,
+        showDetailsButton,presenceLabel, presenceField,updatePresenceButton, presenceStatusComboBox, logoutButton, deleteAccountButton,
         sendFileButton);
         leftPane.setPadding(new Insets(10));
 
@@ -367,8 +373,7 @@ public class XmppChatApp extends Application {
         }
         return null;
     }
-    
-    
+
     private void updateContactList() {
         try {
             contactList.getItems().clear();
@@ -469,21 +474,19 @@ public class XmppChatApp extends Application {
             }
         }
     }
-
-    private void updatePresence() {
-        String presenceMessage = presenceField.getText();
-        if (presenceMessage != null && !presenceMessage.isEmpty()) {
-            try {
-                xmppClient.setPresence(presenceMessage, Presence.Mode.available);
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Presence updated successfully.");
-            } catch (Exception e) {
-                e.printStackTrace();
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to update presence.");
-            }
-        } else {
-            showAlert(Alert.AlertType.WARNING, "Warning", "Please enter a presence message.");
+    
+    private void updatePresenceFromComboBox() {
+        String selectedPresence = presenceStatusComboBox.getValue();
+        String statusMessage = presenceField.getText();
+    
+        try {
+            xmppClient.setPresence(statusMessage, selectedPresence);
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Presence updated to " + selectedPresence + " successfully.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to update presence.");
         }
-    }
+    }   
 
     private void showAlert(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type);

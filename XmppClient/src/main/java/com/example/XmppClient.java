@@ -1,6 +1,5 @@
 package com.example;
 
-
 import org.jivesoftware.smack.*;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.chat2.ChatManager;
@@ -29,9 +28,6 @@ import org.jxmpp.stringprep.XmppStringprepException;
 import javax.net.ssl.*;
 import java.security.cert.X509Certificate;
 
-import org.jivesoftware.smack.packet.Presence.Mode;
-import org.jivesoftware.smack.packet.Presence.Type;
-
 import java.util.List;
 import java.util.ArrayList;
 import java.io.File;
@@ -42,11 +38,6 @@ import java.util.Map;
 import java.nio.file.Files;
 
 import java.util.Base64;
-import java.io.ByteArrayOutputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-
-
 
 public class XmppClient {
 
@@ -133,13 +124,42 @@ public class XmppClient {
     }
 
  
-    public void setPresence(String statusMessage, Mode mode) throws SmackException.NotConnectedException, InterruptedException {
-        Presence presence = PresenceBuilder.buildPresence()
-                .ofType(Type.available)    // Ajustar el tipo de presencia
-                .setMode(mode)             // Establece el modo de presencia (available, away, etc.)
-                .setStatus(statusMessage)  // Establece el mensaje de estado
-                .build();
-        
+    public void setPresence(String statusMessage, String selectedPresence) throws SmackException.NotConnectedException, InterruptedException {
+        Presence presence = null;
+
+        switch (selectedPresence) {
+            case "Available":
+                presence = PresenceBuilder.buildPresence().ofType(Presence.Type.available)
+                            .setStatus(statusMessage)
+                            .build();
+                break;
+            case "Away":
+                presence = PresenceBuilder.buildPresence().ofType(Presence.Type.available)
+                            .setMode(Presence.Mode.away)
+                            .setStatus(statusMessage)
+                            .build();
+                break;
+            case "Busy":
+                presence = PresenceBuilder.buildPresence().ofType(Presence.Type.available)
+                            .setMode(Presence.Mode.dnd)
+                            .setStatus(statusMessage)
+                            .build();
+                break;
+            case "Chat":
+                presence = PresenceBuilder.buildPresence().ofType(Presence.Type.available)
+                            .setMode(Presence.Mode.chat)
+                            .setStatus(statusMessage)
+                            .build();
+                break;
+            case "Offline":
+                presence = PresenceBuilder.buildPresence().ofType(Presence.Type.unavailable)
+                            .setStatus(statusMessage)
+                            .build();
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown presence status: " + selectedPresence);
+        }
+    
         connection.sendStanza(presence);
     }
 
