@@ -28,7 +28,7 @@ Communication (80% of the functionality, 10% each)
 ![Smack](https://img.shields.io/badge/Smack-4.4.4-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-An XMPP (Extensible Messaging and Presence Protocol) chat application implemented in Java using the Smack library. This application allows users to connect to an XMPP server, send and receive messages, manage contacts, create groups, and more.
+An XMPP (Extensible Messaging and Presence Protocol) chat application implemented in Java using the Smack library. This application allows users to connect to an XMPP server, send and receive messages, manage contacts, and more.
 
 ## Features
 
@@ -68,7 +68,7 @@ An XMPP (Extensible Messaging and Presence Protocol) chat application implemente
     mvn exec:java -Dexec.mainClass="com.example.App"
     ```
 
-## Uso
+## Use
 
 1. **Log in:**
    - Open the application and provide your user credentials to log in.
@@ -108,14 +108,3 @@ xmpp-chat-app/
 │
 └── pom.xml
 ```
-## App.java
-
-This is the main class, where the program start.
-
-## Contact.java
-## GroupData.java
-## LoginWindow.java
-## RegisterWindow.java
-## XmppChatApp.java
-## XmppClient.java
-
