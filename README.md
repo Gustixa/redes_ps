@@ -59,8 +59,8 @@ An XMPP (Extensible Messaging and Presence Protocol) chat application implemente
     ```
 
 3. **Configure the XMPP server:**
-   - Asegúrate de tener un servidor XMPP funcionando y configurado.
-   - Actualizar alumchat.lol con el servidor a utilizar (revisar código donde este implementado)
+   - Make sure you have a XMPP server up and configured and running.
+   - Update alumchat.lol with the server to use, maybe it's differete (review the code where is implemented and update all the alumchat.lol with the server)
 
 4. **Run the application:**
 
@@ -72,17 +72,23 @@ An XMPP (Extensible Messaging and Presence Protocol) chat application implemente
 
 1. **Log in:**
    - Open the application and provide your user credentials to log in.
+   To log in, type just the user, without the server name (user@server).
+ 
+2. **Register accout:**
+   - To register an accout, just type the whole user, including the server (user@server).
+   Don't forget the password.
    
-2. **Manage contacts:**
+3. **Manage contacts:**
    - Add contacts via specifying the JID (user@server).
 
-3. **Messaging:**
-   - Select a contact and start sending and receiving messages.
+4. **Messaging:**
+   - Select a contact and start sending and receiving messages. By sending messages, just type
+   the message, and clickth "send" button.
    
-4. **File transfer:**
+5. **File transfer:**
    - Click the "Send file" button to transfer files to a selected contact.
    
-5. **Creating chatrooms:**
+6. **Creating chatrooms:**
    - Create groups and add contacts to start group conversations. (not implemented at all)
 
 ## Project Structure
