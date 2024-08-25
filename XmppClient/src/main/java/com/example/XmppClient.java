@@ -1,27 +1,26 @@
 package com.example;
 
-import org.aspectj.weaver.patterns.ConcreteCflowPointcut.Slot;
+
 import org.jivesoftware.smack.*;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
-import org.jivesoftware.smack.chat2.ChatManager;  // Mantener esta importación
+import org.jivesoftware.smack.chat2.ChatManager;
 import org.jivesoftware.smack.chat2.Chat;
 import org.jivesoftware.smack.chat2.IncomingChatMessageListener;
 import org.jivesoftware.smack.roster.Roster;
 import org.jivesoftware.smack.roster.RosterEntry;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
-// import org.jivesoftware.smack.packet.Element;
-import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
+import org.jivesoftware.smack.packet.MessageBuilder;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.PresenceBuilder;
+import org.jivesoftware.smack.packet.StanzaBuilder;
 import org.jivesoftware.smackx.iqregister.AccountManager;
 import org.jivesoftware.smackx.muc.MultiUserChat;
 import org.jivesoftware.smackx.muc.MultiUserChatManager;
 import org.jivesoftware.smackx.receipts.DeliveryReceiptManager;
 import org.jxmpp.jid.BareJid;
 import org.jxmpp.jid.EntityBareJid;
-import org.jxmpp.jid.Jid;
 import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.jid.parts.Localpart;
 import org.jxmpp.jid.parts.Resourcepart;
@@ -40,28 +39,19 @@ import java.io.IOException;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.file.Files;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
-
-import java.io.StringReader;
-
 import java.util.Base64;
+import java.io.ByteArrayOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
 
 
 public class XmppClient {
 
     private XMPPTCPConnection connection;
     private final Map<String, List<String>> messageHistory = new HashMap<>(); // Mapa para guardar el historial de mensajes
-    private FileUploadHandler fileUploadHandler; // Instancia de FileUploadHandler
 
     public XmppClient(){
         disableCertificateValidation();
@@ -85,8 +75,6 @@ public class XmppClient {
 
         connection = new XMPPTCPConnection(config);
         connection.connect().login();
-
-        fileUploadHandler = new FileUploadHandler(connection); // Inicializar la instancia de FileUploadHandler
 
         System.out.println("Connected as: " + connection.getUser());
                 // Añadir el listener para los mensajes entrantes
@@ -233,86 +221,6 @@ public class XmppClient {
         });
     }
 
-    public void sendFile(File file, String toJid) throws Exception {
-        FileUploadIQ fileUploadIQ = new FileUploadIQ(file.getName(), file.length(), "application/octet-stream");
-        fileUploadIQ.setTo(JidCreate.from("httpfileupload.alumchat.lol"));
-    
-        // Enviar el IQ
-        connection.sendStanza(fileUploadIQ);
-    
-        // Implementar lógica para manejar la respuesta del servidor aquí
-        System.out.println("Request sent for file upload: " + file.getName());
-    
-        // Esperar y manejar la respuesta del servidor
-        connection.addAsyncStanzaListener(stanza -> {
-            if (stanza instanceof IQ) {
-                IQ response = (IQ) stanza;
-                if (response.getType() == IQ.Type.result) {
-                    try {
-                        // Obtener la URL del archivo desde la respuesta y subir el archivo
-                        String uploadUrl = extractUploadUrlFromResponse(response);
-                        uploadFileToServer(file, uploadUrl);
-    
-                        // Enviar la URL del archivo al receptor
-                        sendMessage(toJid, "File uploaded: " + uploadUrl);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        System.out.println("Error during file upload: " + e.getMessage());
-                    }
-                } else {
-                    System.out.println("File upload request failed.");
-                }
-            }
-        }, stanza -> stanza.hasExtension("request", "urn:xmpp:http:upload:0"));
-    
-        // Llamar al método handleUpload del FileUploadHandler para subir el archivo
-        fileUploadHandler.handleUpload(file, JidCreate.from(toJid));
-        System.out.println("File sent to " + toJid + ": " + file.getName());
-    }
-    
-    
-    private void uploadFileToServer(File file, String uploadUrl) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(uploadUrl).openConnection();
-        connection.setDoOutput(true);
-        connection.setRequestMethod("PUT");
-        connection.setRequestProperty("Content-Type", "application/octet-stream");
-    
-        try (OutputStream outputStream = connection.getOutputStream()) {
-            Files.copy(file.toPath(), outputStream);
-        }
-    
-        int responseCode = connection.getResponseCode();
-        if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
-            System.out.println("File uploaded successfully: " + uploadUrl);
-        } else {
-            System.out.println("File upload failed with response code: " + responseCode);
-        }
-    }
-    
-
-    private String extractUploadUrlFromResponse(IQ response) {
-        String uploadUrl = null;
-        // Convertir la respuesta en un objeto XML y buscar la URL
-        try {
-            String responseXML = response.toXML().toString();
-            // Parsear la respuesta como un documento XML
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(new InputSource(new StringReader(responseXML)));
-    
-            // Buscar el nodo "put" que contiene la URL
-            NodeList nodeList = document.getElementsByTagName("put");
-            if (nodeList.getLength() > 0) {
-                Element putElement = (Element) nodeList.item(0);
-                uploadUrl = putElement.getTextContent();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    
-        return uploadUrl;
-    }
-
     public static void disableCertificateValidation() {
         try {
             TrustManager[] trustAllCerts = new TrustManager[] {
@@ -338,15 +246,25 @@ public class XmppClient {
         // Leer el archivo y codificarlo en Base64
         byte[] bytesArchivo = Files.readAllBytes(archivo.toPath());
         String archivoCodificado = Base64.getEncoder().encodeToString(bytesArchivo);
-
-        // Crear el mensaje XMPP y adjuntar el archivo codificado
-        Message mensaje = new Message();
-        mensaje.setTo(JidCreate.entityBareFrom(jidDestino));
-        mensaje.setBody(archivoCodificado);
-        mensaje.addSubject("file-transfer", archivo.getName()); // Para identificar que es una transferencia de archivo
-
-        // Enviar el mensaje
-        getConnection().sendStanza(mensaje);
-    }
     
+        // Determinar el tipo MIME del archivo (puedes usar una librería más sofisticada para MIME si lo necesitas)
+        String mimeType = Files.probeContentType(archivo.toPath());
+        if (mimeType == null) {
+            mimeType = "application/octet-stream"; // Si no se puede determinar, usar un tipo por defecto
+        }
+    
+        // Crear el enlace data URI
+        String dataUri = "data:" + mimeType + ";base64," + archivoCodificado;
+    
+        // Crear el mensaje XMPP y adjuntar el enlace
+        MessageBuilder mensajeBuilder = StanzaBuilder.buildMessage()
+                .to(JidCreate.entityBareFrom(jidDestino))
+                .ofType(Message.Type.chat) // Especifica que es un mensaje de chat
+                .setBody("Archivo: " + dataUri)
+                .addSubject("file-transfer", archivo.getName()); // Para identificar que es una transferencia de archivo
+    
+        // Construir y enviar el mensaje
+        getConnection().sendStanza(mensajeBuilder.build());
+    }
+        
   }
