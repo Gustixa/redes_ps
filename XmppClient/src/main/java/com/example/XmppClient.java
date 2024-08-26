@@ -280,6 +280,7 @@ public class XmppClient {
             connection.sendStanza(subscribe);
 
             System.out.println("Subscription request sent to: " + jid);
+        
         } else {
             System.out.println("Contact already exists: " + jid);
         }
@@ -398,5 +399,7 @@ public class XmppClient {
         // Construir y enviar el mensaje
         getConnection().sendStanza(mensajeBuilder.build());
     }
+
+
         
-  }
+}

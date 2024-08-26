@@ -175,7 +175,6 @@ public class XmppChatApp extends Application {
         presenceStatusComboBox.setValue("Available"); // Estado predeterminado
         presenceStatusComboBox.setOnAction(e -> updatePresenceFromComboBox());
 
-
         VBox leftPane = new VBox(10, contactList, newUserField, addUserButton, createGroupButton,
         showDetailsButton,presenceLabel, presenceField,updatePresenceButton, presenceStatusComboBox, logoutButton, deleteAccountButton,
         sendFileButton);
