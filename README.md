@@ -75,7 +75,7 @@ An XMPP (Extensible Messaging and Presence Protocol) chat application implemente
    To log in, type just the user, without the server name (user@server).
  
 2. **Register accout:**
-   - To register an accout, just type the whole user, including the server (user@server).
+   - Like the Login, just type the user, without the server (user@server).
    Don't forget the password.
    
 3. **Manage contacts:**
